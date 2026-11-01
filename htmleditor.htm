@@ -1,0 +1,1770 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>HTML Editor</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bubble: rgba(30, 34, 42, 0.95);
+    --bubble-border: rgba(255,255,255,0.12);
+    --surface-2: #1e2229;
+    --surface-3: #2a2f38;
+    --line: rgba(255,255,255,.08);
+    --text: #f0f2f5;
+    --text-secondary: #9ca3af;
+    --muted: #6b7280;
+    --accent: #6366f1;
+    --accent-soft: rgba(99,102,241,.15);
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+  html, body {
+    height: 100%; margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+    overscroll-behavior: none; user-select: none; touch-action: none;
+  }
+
+  .app { height: 100dvh; display: grid; grid-template-rows: 1fr; }
+
+  .topbar {
+    position: fixed; top: calc(12px + var(--safe-top)); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    background: rgba(20, 24, 30, 0.9); backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 999px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+    z-index: 100;
+  }
+
+  .bottom-bar {
+    position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+    background: rgba(20, 24, 30, 0.9); backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 999px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+    z-index: 30;
+  }
+
+  .icon-btn {
+    width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; 
+    color: var(--accent); display: grid; place-items: center; cursor: pointer; 
+    transition: all 0.2s; flex-shrink: 0; position: relative;
+  }
+  .icon-btn:active { transform: scale(0.9); }
+  .icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn.active { color: white; }
+  .icon-btn.primary { background: var(--accent); color: white; }
+  .icon-btn:disabled { opacity: .3; pointer-events: none; }
+
+  .add-btn-main, .export-btn-main {
+    width: 48px; height: 48px; border: 0; border-radius: 50%; background: var(--accent); color: white;
+    display: grid; place-items: center; box-shadow: 0 4px 16px rgba(99,102,241,.4);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .add-btn-main:active, .export-btn-main:active { transform: scale(0.9); }
+  .add-btn-main svg, .export-btn-main svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+
+  .stage { position: relative; overflow: hidden; background: #0d0f14; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+
+  .toast-container { position: fixed; top: calc(80px + var(--safe-top)); left: 50%; transform: translateX(-50%); z-index: 90; pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .toast { padding: 8px 16px; background: var(--bubble); border: 1px solid var(--bubble-border); border-radius: 10px; backdrop-filter: blur(16px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); color: var(--text); font-size: 13px; font-weight: 500; opacity: 0; transform: translateY(-8px); transition: opacity 0.25s, transform 0.25s; white-space: nowrap; max-width: calc(100vw - 32px); text-align: center; }
+  .toast.visible { opacity: 1; transform: translateY(0); }
+
+  .bubble-bar { position: absolute; display: flex; gap: 4px; padding: 6px; background: var(--bubble); border: 1px solid var(--bubble-border); border-radius: 14px; backdrop-filter: blur(16px); box-shadow: 0 8px 32px rgba(0,0,0,0.6); z-index: 40; pointer-events: auto; opacity: 0; transition: left 0.28s cubic-bezier(.22,.61,.36,1), top 0.28s cubic-bezier(.22,.61,.36,1), opacity 0.2s; }
+  .bubble-bar.visible { opacity: 1; }
+  .bubble-bar.no-anim { transition: opacity 0.2s !important; }
+  .bubble-bar.tail-bottom::before { content: ''; position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--bubble-border); }
+  .bubble-bar.tail-bottom::after { content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid var(--bubble); }
+  .bubble-bar.tail-top::before { content: ''; position: absolute; top: -9px; left: 50%; transform: translateX(-50%); border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 10px solid var(--bubble-border); }
+  .bubble-bar.tail-top::after { content: ''; position: absolute; top: -7px; left: 50%; transform: translateX(-50%); border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 8px solid var(--bubble); }
+
+  .bubble-btn { width: 38px; height: 38px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; background: rgba(255,255,255,0.04); color: var(--accent); display: grid; place-items: center; cursor: pointer; transition: all 0.15s; flex-shrink: 0; }
+  .bubble-btn:active { transform: scale(0.9); }
+  .bubble-btn.active { background: var(--accent) !important; color: white !important; border-color: var(--accent) !important; }
+  .bubble-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .bubble-btn.danger { color: var(--danger); }
+  .bubble-btn.hidden-btn { display: none; }
+
+  .bubble-menu { position: fixed; min-width: 240px; max-width: calc(100vw - 24px); padding: 14px; background: var(--bubble); border: 1px solid var(--bubble-border); border-radius: 16px; backdrop-filter: blur(20px); box-shadow: 0 16px 48px rgba(0,0,0,0.7); z-index: 55; opacity: 0; pointer-events: none; transition: left 0.25s cubic-bezier(.22,.61,.36,1), top 0.25s cubic-bezier(.22,.61,.36,1), opacity 0.2s; touch-action: none; cursor: grab; }
+  .bubble-menu.open { opacity: 1; pointer-events: auto; }
+  .bubble-menu.no-anim { transition: opacity 0.15s !important; }
+  .bubble-menu.dragging { transition: none !important; cursor: grabbing; }
+  .bubble-menu.tail-top::before { content: ''; position: absolute; top: -11px; left: var(--tail-x, 50%); transform: translateX(-50%); border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 10px solid var(--bubble-border); pointer-events: none; }
+  .bubble-menu.tail-top::after { content: ''; position: absolute; top: -9px; left: var(--tail-x, 50%); transform: translateX(-50%); border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 9px solid var(--bubble); pointer-events: none; }
+  .bubble-menu.tail-bottom::before { content: ''; position: absolute; bottom: -11px; left: var(--tail-x, 50%); transform: translateX(-50%); border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--bubble-border); pointer-events: none; }
+  .bubble-menu.tail-bottom::after { content: ''; position: absolute; bottom: -9px; left: var(--tail-x, 50%); transform: translateX(-50%); border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 9px solid var(--bubble); pointer-events: none; }
+
+  .menu-title { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 8px; margin-top: 8px; }
+  .menu-section { margin-bottom: 12px; }
+  .color-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .color-divider { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 4px 0; }
+  .color-swatch { aspect-ratio: 1; border-radius: 10px; border: 2px solid rgba(255,255,255,0.15); cursor: pointer; transition: all 0.15s; min-width: 36px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .color-swatch:active { transform: scale(0.95); }
+  .color-swatch.rainbow { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); border: none; }
+  .color-swatch.transparent-swatch { background: repeating-conic-gradient(#888 0 25%, #555 0 50%) 0 0/12px 12px; position: relative; }
+  .color-swatch.transparent-swatch::after { content: ''; position: absolute; inset: 4px; border-radius: 6px; background: transparent; border: 2px dashed rgba(255,255,255,0.3); }
+
+  .slider-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .slider-row label { color: var(--text-secondary); font-weight: 500; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .slider-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); height: 4px; -webkit-appearance: none; appearance: none; background: var(--surface-3); border-radius: 2px; }
+  .slider-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  .slider-row .val { color: var(--text); min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+
+  .add-menu { position: fixed; left: 50%; bottom: calc(100px + var(--safe-bottom)); transform: translateX(-50%); width: 220px; padding: 8px; background: var(--bubble); border: 1px solid var(--bubble-border); border-radius: 16px; backdrop-filter: blur(20px); box-shadow: 0 16px 48px rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: .2s; z-index: 50; }
+  .add-menu.open { opacity: 1; pointer-events: auto; }
+  .add-menu::before { content: ''; position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%); border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--bubble-border); }
+  .add-menu::after { content: ''; position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); border-left: 8px solid transparent; border-right: 8px solid transparent; border-top: 8px solid var(--bubble); }
+  .add-item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font-size: 13px; font-weight: 500; text-align: left; cursor: pointer; transition: background 0.15s; }
+  .add-item:active { transform: scale(0.97); background: var(--surface-3); }
+  .add-item svg { width: 18px; height: 18px; stroke: var(--accent); fill: none; stroke-width: 1.8; }
+
+  .panel { position: fixed; inset: auto 0 0 0; max-height: 60dvh; background: var(--bubble); border-top: 1px solid var(--line); border-radius: 24px 24px 0 0; box-shadow: 0 -16px 48px rgba(0,0,0,.7); transform: translateY(105%); transition: transform .3s cubic-bezier(.4,0,.2,1); z-index: 60; display: flex; flex-direction: column; padding-bottom: var(--safe-bottom); }
+  .panel.open { transform: translateY(0); }
+  .grabber { width: 40px; height: 4px; margin: 12px auto 8px; border-radius: 99px; background: var(--surface-3); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px 16px; border-bottom: 1px solid var(--line); }
+  .panel-title-group { display: flex; flex-direction: column; gap: 2px; }
+  .panel-title { font-weight: 700; font-size: 17px; }
+  .panel-sub { color: var(--muted); font-size: 12px; }
+  
+  .layer-bar { display: flex; gap: 6px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: rgba(0,0,0,0.2); flex-wrap: wrap; }
+  .layer-btn { flex: 1; height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; min-width: 40px; }
+  .layer-btn:active { transform: scale(0.95); background: var(--surface-3); }
+  .layer-btn:disabled { opacity: 0.3; cursor: not-allowed; color: var(--muted); }
+  .layer-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .layer-btn.danger { color: var(--danger); border-color: rgba(239,68,68,.3); }
+
+  .panel-body { overflow-y: auto; padding: 16px 20px; flex: 1; }
+  .layer-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid transparent; cursor: pointer; transition: all 0.15s; margin-bottom: 8px; }
+  .layer-item:active { background: var(--surface-3); }
+  .layer-item.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .layer-item.locked { opacity: 0.6; }
+  .layer-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,.06); display: grid; place-items: center; flex-shrink: 0; }
+  .layer-icon svg { width: 16px; height: 16px; stroke: var(--text); fill: none; stroke-width: 1.8; }
+  .layer-info { flex: 1; min-width: 0; }
+  .layer-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .layer-type { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .layer-actions { display: flex; gap: 4px; align-items: center; }
+  .layer-check { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  .layer-action-btn { width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; display: grid; place-items: center; transition: all 0.15s; }
+  .layer-action-btn:active { background: var(--surface-3); color: var(--text); }
+  .layer-action-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .layer-action-btn.lock-active { color: var(--warning); }
+  .layer-action-btn.vis-off { color: var(--muted); opacity: 0.5; }
+
+  .export-code { width: 100%; height: 120px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; color: var(--text-secondary); font: 11px/1.5 ui-monospace, monospace; padding: 12px; resize: none; margin-top: 12px; }
+  .export-actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .btn { flex: 1; height: 42px; border: 0; border-radius: 12px; background: var(--surface-2); color: var(--text); font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.15s; }
+  .btn:active { background: var(--surface-3); }
+  .btn.primary { background: var(--accent); color: white; }
+
+  .picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(8px); display: grid; place-items: end center; z-index: 70; opacity: 0; pointer-events: none; transition: .2s; }
+  .picker-overlay.open { opacity: 1; pointer-events: auto; }
+  .picker-card { width: min(360px, 92%); background: var(--bubble); border-top: 1px solid var(--line); border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: calc(20px + var(--safe-bottom)); transform: translateY(100%); transition: .3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 -8px 32px rgba(0,0,0,0.5); }
+  .picker-overlay.open .picker-card { transform: translateY(0); }
+  .sv-area { position: relative; height: 200px; border-radius: 14px; overflow: hidden; touch-action: none; cursor: crosshair; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .sv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .sv-dot { position: absolute; width: 20px; height: 20px; border: 3px solid white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
+  .hue-bar { position: relative; height: 28px; margin-top: 14px; border-radius: 999px; background: linear-gradient(90deg, red, yellow, lime, cyan, blue, magenta, red); touch-action: none; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .alpha-bar { position: relative; height: 28px; margin-top: 12px; border-radius: 999px; background: linear-gradient(90deg, transparent, currentColor), repeating-conic-gradient(#444 0 25%, #333 0 50%) 0 0/14px 14px; touch-action: none; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); }
+  .hue-dot, .alpha-dot { position: absolute; top: 50%; width: 24px; height: 24px; border: 3px solid white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
+  .picker-result { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 10px; background: var(--surface-2); border-radius: 12px; }
+  .result-box { width: 40px; height: 40px; border-radius: 10px; border: 2px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .result-text { color: var(--text-secondary); font-size: 13px; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+  .picker-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  body.eyedropper-active { cursor: crosshair !important; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <button class="icon-btn" id="bgBtn" title="Фон холста"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none"/><path d="M3 9h18M9 3v18"/></svg></button>
+    <button class="icon-btn" id="gridBtn" title="Сетка"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></button>
+    <button class="export-btn-main" id="exportBtn" title="Экспорт"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></button>
+    <button class="icon-btn" id="layersBtn" title="Слои"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 14 9 5 9-5"/></svg></button>
+    <button class="icon-btn" id="helpBtn" title="Справка"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+  </header>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <main class="stage" id="stage">
+    <canvas id="canvas"></canvas>
+
+    <div class="bubble-bar" id="bubbleBar">
+      <button class="bubble-btn" id="btnFill" data-hint="Цвет заливки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.3"/><circle cx="12" cy="12" r="9" fill="none"/></svg></button>
+      <button class="bubble-btn" id="btnStroke" data-hint="Контур и толщина"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke-width="2.5"/></svg></button>
+      <button class="bubble-btn" id="btnProps" data-hint="Свойства"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></button>
+      <button class="bubble-btn" id="btnEyedropper" data-hint="Пипетка"><svg viewBox="0 0 24 24"><path d="M16 4l4 4-10 10-4-4z"/><path d="M10 14l-6 6"/></svg></button>
+      <button class="bubble-btn" id="btnDuplicate" data-hint="Дублировать"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none"/></svg></button>
+      <button class="bubble-btn danger" id="btnDelete" data-hint="Удалить"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" fill="none"/></svg></button>
+    </div>
+
+    <div class="bubble-menu" id="bgMenu">
+      <div class="menu-section">
+        <div class="menu-title">Фон холста</div>
+        <div class="color-grid" id="bgColorGrid">
+          <div class="color-swatch transparent-swatch" data-bg="transparent" title="Прозрачный"></div>
+          <div class="color-swatch" style="background:#ffffff" data-bg="#ffffff" title="Белый"></div>
+          <div class="color-swatch" style="background:#1e2229" data-bg="#1e2229" title="Темно-серый"></div>
+          <div class="color-swatch" style="background:#000000" data-bg="#000000" title="Черный"></div>
+          <div class="color-swatch rainbow" id="openBgPicker" title="Свой цвет"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bubble-menu" id="fillMenu">
+      <div class="menu-section">
+        <div class="menu-title">Цвет заливки</div>
+        <div class="color-grid" id="fillColorGrid">
+          <div class="color-swatch" style="background:#6366f1" data-color="#6366f1"></div>
+          <div class="color-swatch" style="background:#22c55e" data-color="#22c55e"></div>
+          <div class="color-swatch" style="background:#f59e0b" data-color="#f59e0b"></div>
+          <div class="color-swatch" style="background:#ef4444" data-color="#ef4444"></div>
+          <div class="color-swatch" style="background:#e879f9" data-color="#e879f9"></div>
+          <div class="color-swatch" style="background:#f8fafc" data-color="#f8fafc"></div>
+          <div class="color-swatch" style="background:#1a1a1a" data-color="#1a1a1a"></div>
+          <div class="color-swatch" style="background:#000000" data-color="#000000"></div>
+        </div>
+        <div class="color-divider"></div>
+        <div class="color-grid" id="customFillGrid" style="grid-template-columns: repeat(4, 1fr); margin-top: 8px;"></div>
+      </div>
+      <div class="menu-section">
+        <div class="slider-row">
+          <label>Прозрачность</label>
+          <input type="range" id="opacity" min="0" max="100" value="100">
+          <span class="val" id="opacityVal">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bubble-menu" id="strokeMenu">
+      <div class="menu-section">
+        <div class="menu-title">Цвет контура</div>
+        <div class="color-grid" id="strokeColorGrid" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="color-swatch" style="background:#ffffff" data-stroke="#ffffff"></div>
+          <div class="color-swatch" style="background:#000000" data-stroke="#000000"></div>
+          <div class="color-swatch" style="background:#6366f1" data-stroke="#6366f1"></div>
+          <div class="color-swatch rainbow" id="openStrokePicker" title="Свой цвет"></div>
+        </div>
+        <div class="color-divider"></div>
+        <div class="color-grid" id="customStrokeGrid" style="grid-template-columns: repeat(4, 1fr); margin-top: 8px;"></div>
+      </div>
+      <div class="menu-section">
+        <div class="slider-row">
+          <label>Толщина</label>
+          <input type="range" id="strokeWidth" min="0" max="24" value="0">
+          <span class="val" id="strokeVal">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bubble-menu" id="propsMenu">
+      <div class="menu-section" id="polygonSection" style="display:none;">
+        <div class="menu-title">Режим полигона</div>
+        <button class="btn primary" id="togglePolygonBtn" style="width:100%; margin-bottom: 8px;">Включить редактирование точек</button>
+        <div style="font-size:11px; color:var(--muted); line-height:1.4; padding: 0 4px; white-space: normal; word-wrap: break-word;">
+          • Перетаскивайте точки<br>• Двойной клик: удалить<br>• Клик по грани: добавить
+        </div>
+      </div>
+      <div class="menu-section" id="radiusSection" style="display:none;">
+        <div class="menu-title">Скругление углов</div>
+        <div class="slider-row">
+          <input type="range" id="radius" min="0" max="100" value="0">
+          <span class="val" id="radiusVal">0</span>
+        </div>
+      </div>
+      <div class="menu-section" id="fontSizeSection" style="display:none;">
+        <div class="menu-title">Размер текста</div>
+        <div class="slider-row">
+          <input type="range" id="fontSize" min="8" max="120" value="28">
+          <span class="val" id="fontSizeVal">28</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="bottom-bar">
+    <button class="icon-btn" id="undoBtn" title="Отменить"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    <button class="add-btn-main" id="addBtn" title="Добавить объект"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="icon-btn" id="redoBtn" title="Повторить"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+  </div>
+</div>
+
+<div class="add-menu" id="addMenu">
+  <button class="add-item" data-type="freeform"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg> Произвольная фигура</button>
+  <button class="add-item" data-type="rect"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg> Прямоугольник</button>
+  <button class="add-item" data-type="ellipse"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6.5"/></svg> Эллипс</button>
+  <button class="add-item" data-type="line"><svg viewBox="0 0 24 24"><path d="M5 19 19 5"/></svg> Линия</button>
+  <button class="add-item" data-type="text"><svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v13"/></svg> Текст</button>
+</div>
+
+<div class="picker-overlay" id="picker">
+  <div class="picker-card">
+    <div class="sv-area" id="svArea"><canvas class="sv-canvas" id="svCanvas"></canvas><div class="sv-dot" id="svDot"></div></div>
+    <div class="hue-bar" id="hueArea"><div class="hue-dot" id="hueDot"></div></div>
+    <div class="alpha-bar" id="alphaArea"><div class="alpha-dot" id="alphaDot"></div></div>
+    <div class="picker-result"><div class="result-box" id="resultBox"></div><div class="result-text" id="resultText">#6366f1 · 100%</div></div>
+    <div class="picker-actions"><button class="btn" id="cancelPicker">Отмена</button><button class="btn primary" id="applyPicker">Применить</button></div>
+  </div>
+</div>
+
+<section class="panel" id="panel">
+  <div class="grabber"></div>
+  <div class="panel-head">
+    <div class="panel-title-group">
+      <div class="panel-title" id="panelTitle">Слои</div>
+      <div class="panel-sub" id="panelSub">Объекты</div>
+    </div>
+    <button class="close-btn" id="closePanel" style="width:32px;height:32px;border:0;border-radius:10px;background:var(--surface-2);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:18px;">✕</button>
+  </div>
+  <div class="layer-bar" id="layerBar">
+    <button class="layer-btn" id="layerUpBtn" disabled title="Поднять"><svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg></button>
+    <button class="layer-btn" id="layerDownBtn" disabled title="Опустить"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+    <button class="layer-btn" id="layerRenameBtn" disabled title="Переименовать"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+    <button class="layer-btn danger" id="layerClearBtn" title="Очистить холст"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" fill="none"/></svg></button>
+  </div>
+  <div class="panel-body">
+    <div id="layers"></div>
+    <div id="exportBlock" hidden>
+      <div class="menu-title" style="margin-bottom:8px">Экспорт</div>
+      <div class="export-actions" style="margin-top:0;">
+        <button class="btn primary" id="exportHtmlBtn">HTML код</button>
+        <button class="btn" id="exportPngBtn">PNG изображение</button>
+      </div>
+      <textarea class="export-code" id="exportCode" readonly style="display:none;"></textarea>
+      <div class="export-actions" id="exportCodeActions" style="display:none;">
+        <button class="btn" id="copyCode">Копировать</button>
+        <button class="btn" id="previewCode">Предпросмотр</button>
+        <button class="btn primary" id="downloadCode">Скачать</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const stage = document.getElementById('stage');
+
+const bubbleBar = document.getElementById('bubbleBar');
+const fillMenu = document.getElementById('fillMenu');
+const strokeMenu = document.getElementById('strokeMenu');
+const propsMenu = document.getElementById('propsMenu');
+const bgMenu = document.getElementById('bgMenu');
+const picker = document.getElementById('picker');
+const panel = document.getElementById('panel');
+const addMenu = document.getElementById('addMenu');
+const toastContainer = document.getElementById('toastContainer');
+
+const STORAGE_KEY = 'html_editor_autosave';
+
+const state = {
+  shapes: [],
+  selectedIds: [],
+  grid: true,
+  background: 'transparent',
+  view: { x: 0, y: 0, zoom: 1 },
+  history: [],
+  future: [],
+  eyedropper: false,
+  pickerTarget: 'fill',
+  activeMenu: null,
+  toastTimer: null,
+  barVisible: false,
+  menuFirstFrame: new Set(),
+  recentColors: [],
+  isExportMode: false
+};
+
+let nextId = 1;
+let pointers = new Map();
+let gesture = null;
+let moveTarget = null;
+let moveStart = null;
+let panMode = false;
+let panStart = null;
+let resizeHandle = null;
+let resizeStart = null;
+let rotateMode = false;
+let rotateStartAngle = 0;
+let rotateOriginal = 0;
+let dragMenu = null;
+let dragMenuStartX = 0, dragMenuStartY = 0, dragMenuOrigLeft = 0, dragMenuOrigTop = 0;
+let hsv = { h: 240, s: 85, v: 100, a: 1 };
+let lastVertexTap = 0;
+let lastVertexIndex = -1;
+
+const $ = id => document.getElementById(id);
+
+// === АВТОСОХРАНЕНИЕ ===
+let saveTimeout = null;
+function scheduleSave() {
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(saveState, 300);
+}
+
+function saveState() {
+  try {
+    const data = {
+      shapes: state.shapes,
+      background: state.background,
+      grid: state.grid,
+      nextId: nextId,
+      recentColors: state.recentColors,
+      version: 1
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {
+    console.warn('Автосохранение не удалось:', e);
+  }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.shapes && Array.isArray(data.shapes)) state.shapes = data.shapes;
+    if (data.background !== undefined) state.background = data.background;
+    if (data.grid !== undefined) state.grid = data.grid;
+    if (data.nextId && typeof data.nextId === 'number') nextId = data.nextId;
+    if (data.recentColors && Array.isArray(data.recentColors)) state.recentColors = data.recentColors;
+    return true;
+  } catch(e) {
+    console.warn('Загрузка не удалась:', e);
+    return false;
+  }
+}
+
+function clearAllState() {
+  if (!confirm('Очистить весь холст? Все фигуры будут удалены без возможности восстановления.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state.shapes = [];
+  state.selectedIds = [];
+  state.background = 'transparent';
+  state.grid = true;
+  state.history = [];
+  state.future = [];
+  state.recentColors = [];
+  nextId = 1;
+  closeAllMenus();
+  syncUI();
+  render();
+  updateHistory();
+  showToast('Холст очищен');
+}
+
+function setActiveBarBtn(btn) {
+  document.querySelectorAll('.bubble-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+function showToast(text, duration = 2000) {
+  const old = toastContainer.querySelector('.toast');
+  if (old) old.remove();
+  clearTimeout(state.toastTimer);
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = text;
+  toastContainer.appendChild(toast);
+  toast.offsetHeight;
+  toast.classList.add('visible');
+  state.toastTimer = setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 250);
+  }, duration);
+}
+
+function showSplitToast(text1, text2) {
+  showToast(text1, 1500);
+  setTimeout(() => showToast(text2, 2500), 1600);
+}
+
+function snapshot() {
+  state.history.push(JSON.stringify(state.shapes));
+  if (state.history.length > 50) state.history.shift();
+  state.future = [];
+  updateHistory();
+  scheduleSave();
+}
+
+function undo() {
+  if (!state.history.length) return;
+  state.future.push(JSON.stringify(state.shapes));
+  state.shapes = JSON.parse(state.history.pop());
+  state.selectedIds = [];
+  syncUI(); render(); updateHistory();
+  scheduleSave();
+  showToast('Действие отменено');
+}
+
+function redo() {
+  if (!state.future.length) return;
+  state.history.push(JSON.stringify(state.shapes));
+  state.shapes = JSON.parse(state.future.pop());
+  state.selectedIds = [];
+  syncUI(); render(); updateHistory();
+  scheduleSave();
+  showToast('Действие возвращено');
+}
+
+function updateHistory() {
+  $('undoBtn').disabled = !state.history.length;
+  $('redoBtn').disabled = !state.future.length;
+}
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  render();
+}
+
+function toWorld(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const view = state.view;
+  return { x: (clientX - rect.left - view.x) / view.zoom, y: (clientY - rect.top - view.y) / view.zoom };
+}
+
+function selected() { return state.shapes.find(s => s.id === state.selectedIds[0]); }
+function snap(value) { return state.grid ? Math.round(value / 16) * 16 : value; }
+
+function bounds(shape) {
+  if (shape.isPolygon && shape.vertices && shape.vertices.length >= 3) {
+    const xs = shape.vertices.map(v => v.x);
+    const ys = shape.vertices.map(v => v.y);
+    return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+  }
+  if (shape.type === 'line') {
+    return { x: Math.min(shape.x, shape.x2), y: Math.min(shape.y, shape.y2), w: Math.max(Math.abs(shape.x2 - shape.x), 20), h: Math.max(Math.abs(shape.y2 - shape.y), 20) };
+  }
+  if (shape.type === 'text') {
+    ctx.font = `${shape.fontWeight || 400} ${shape.fontSize}px system-ui`;
+    return { x: shape.x, y: shape.y - shape.fontSize, w: ctx.measureText(shape.text).width, h: shape.fontSize * 1.25 };
+  }
+  return { x: Math.min(shape.x, shape.x + shape.w), y: Math.min(shape.y, shape.y + shape.h), w: Math.abs(shape.w), h: Math.abs(shape.h) };
+}
+
+function center(shape) {
+  const box = bounds(shape);
+  return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+}
+
+function toLocal(point, shape) {
+  const c = center(shape);
+  const angle = -(shape.rotation || 0) * Math.PI / 180;
+  const dx = point.x - c.x, dy = point.y - c.y;
+  return { x: c.x + dx * Math.cos(angle) - dy * Math.sin(angle), y: c.y + dx * Math.sin(angle) + dy * Math.cos(angle) };
+}
+
+function isPointInPolygon(point, vertices) {
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const xi = vertices[i].x, yi = vertices[i].y, xj = vertices[j].x, yj = vertices[j].y;
+    const intersect = ((yi > point.y) !== (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function hitTest(point) {
+  for (let i = state.shapes.length - 1; i >= 0; i--) {
+    const shape = state.shapes[i];
+    if (!shape.visible || shape.locked) continue;
+    if (shape.isPolygon && shape.vertices && shape.vertices.length >= 3) {
+      if (isPointInPolygon(point, shape.vertices)) return shape;
+    } else {
+      const box = bounds(shape);
+      const local = toLocal(point, shape);
+      const pad = shape.type === 'line' ? 15 / state.view.zoom : 10 / state.view.zoom;
+      if (local.x >= box.x - pad && local.x <= box.x + box.w + pad && local.y >= box.y - pad && local.y <= box.y + box.h + pad) return shape;
+    }
+  }
+}
+
+function distToSegment(p, v, w) {
+  const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+  if (l2 === 0) return { dist: Math.hypot(p.x - v.x, p.y - v.y), proj: { ...v } };
+  let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const proj = { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) };
+  return { dist: Math.hypot(p.x - proj.x, p.y - proj.y), proj };
+}
+
+function handleAt(point, shape) {
+  if (!shape || shape.locked) return null;
+  const size = 22 / state.view.zoom;
+  if (shape.isPolygon && shape.polygonEditMode && shape.vertices && shape.vertices.length >= 3) {
+    for (let i = 0; i < shape.vertices.length; i++) {
+      const v = shape.vertices[i];
+      if (Math.abs(point.x - v.x) <= size && Math.abs(point.y - v.y) <= size) return { type: 'vertex', index: i };
+    }
+    for (let i = 0; i < shape.vertices.length; i++) {
+      const v1 = shape.vertices[i], v2 = shape.vertices[(i + 1) % shape.vertices.length];
+      const { dist, proj } = distToSegment(point, v1, v2);
+      if (dist <= size) return { type: 'segment', index: i, proj };
+    }
+    return null;
+  }
+  if (shape.type === 'line') {
+    const endpoints = { start: [shape.x, shape.y], end: [shape.x2, shape.y2] };
+    for (const [name, pos] of Object.entries(endpoints)) {
+      if (Math.abs(point.x - pos[0]) <= size && Math.abs(point.y - pos[1]) <= size) return name;
+    }
+    return null;
+  }
+  const box = bounds(shape);
+  const local = toLocal(point, shape);
+  const handles = { nw: [box.x, box.y], ne: [box.x + box.w, box.y], sw: [box.x, box.y + box.h], se: [box.x + box.w, box.y + box.h] };
+  for (const [name, pos] of Object.entries(handles)) {
+    if (Math.abs(local.x - pos[0]) <= size && Math.abs(local.y - pos[1]) <= size) return name;
+  }
+  const rotateHandle = { x: box.x + box.w / 2, y: box.y - 40 / state.view.zoom };
+  if (Math.abs(local.x - rotateHandle.x) <= 20 / state.view.zoom && Math.abs(local.y - rotateHandle.y) <= 20 / state.view.zoom) return 'rotate';
+  return null;
+}
+
+function createShape(type) {
+  const rect = canvas.getBoundingClientRect();
+  const centerPoint = toWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  const id = nextId++;
+  const base = { 
+    id, type, groupId: null,
+    name: ({ freeform: 'Фигура', rect: 'Прямоугольник', ellipse: 'Эллипс', line: 'Линия', text: 'Текст' })[type] + ' ' + id, 
+    fill: '#6366f1', stroke: '#ffffff', strokeWidth: type === 'line' ? 5 : 0, opacity: 100, visible: true, locked: false, rotation: 0, lineCap: 'round', isPolygon: false, polygonEditMode: false, vertices: null
+  };
+  if (type === 'freeform') {
+    base.isPolygon = true;
+    base.polygonEditMode = true;
+    base.vertices = [
+      { x: centerPoint.x - 60, y: centerPoint.y - 60 },
+      { x: centerPoint.x + 60, y: centerPoint.y - 60 },
+      { x: centerPoint.x + 60, y: centerPoint.y + 60 },
+      { x: centerPoint.x - 60, y: centerPoint.y + 60 }
+    ];
+    base.fill = 'transparent';
+    base.stroke = '#6366f1';
+    base.strokeWidth = 3;
+    return base;
+  }
+  if (type === 'rect') return { ...base, x: centerPoint.x - 70, y: centerPoint.y - 50, w: 140, h: 100, radius: 0 };
+  if (type === 'ellipse') return { ...base, x: centerPoint.x - 65, y: centerPoint.y - 45, w: 130, h: 90 };
+  if (type === 'line') return { ...base, x: centerPoint.x - 70, y: centerPoint.y, x2: centerPoint.x + 70, y2: centerPoint.y };
+  return { ...base, x: centerPoint.x - 50, y: centerPoint.y, text: 'Текст', fontSize: 28, fontWeight: 400 };
+}
+
+function addShape(type) {
+  snapshot();
+  const shape = createShape(type);
+  state.shapes.push(shape);
+  state.selectedIds = [shape.id];
+  addMenu.classList.remove('open');
+  syncUI(); render();
+  if (type === 'freeform') {
+    showSplitToast("Перетаскивайте точки для изменения формы", "Двойной клик: удалить. Клик по грани: добавить");
+  } else {
+    showToast('Добавлен: ' + ({ freeform: 'произвольная фигура', rect: 'прямоугольник', ellipse: 'эллипс', line: 'линия', text: 'текст' })[type]);
+  }
+}
+
+function deleteSelected() {
+  if (!state.selectedIds.length) return;
+  const locked = state.shapes.some(s => state.selectedIds.includes(s.id) && s.locked);
+  if (locked) { showToast('Объект заблокирован'); return; }
+  snapshot();
+  state.shapes = state.shapes.filter(s => !state.selectedIds.includes(s.id));
+  state.selectedIds = [];
+  closeAllMenus();
+  syncUI(); render();
+  showToast('Объект(ы) удалён(ы)');
+}
+
+function duplicateSelected() {
+  if (!state.selectedIds.length) return;
+  snapshot();
+  const newIds = [];
+  state.selectedIds.forEach(id => {
+    const shape = state.shapes.find(s => s.id === id);
+    if (!shape) return;
+    const newShape = JSON.parse(JSON.stringify(shape));
+    newShape.id = nextId++;
+    newShape.groupId = null;
+    newShape.name = shape.name + ' (копия)';
+    newShape.polygonEditMode = false;
+    if (newShape.type === 'line') { newShape.x += 20; newShape.y += 20; newShape.x2 += 20; newShape.y2 += 20; } 
+    else if (newShape.isPolygon && newShape.vertices) { newShape.vertices = newShape.vertices.map(v => ({ x: v.x + 20, y: v.y + 20 })); } 
+    else { newShape.x += 20; newShape.y += 20; }
+    state.shapes.push(newShape);
+    newIds.push(newShape.id);
+  });
+  state.selectedIds = newIds;
+  syncUI(); render();
+  showToast('Объект(ы) скопирован(ы)');
+}
+
+function render() {
+  const rect = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  if (state.background !== 'transparent') {
+    ctx.fillStyle = state.background;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  }
+  ctx.save();
+  ctx.translate(state.view.x, state.view.y);
+  ctx.scale(state.view.zoom, state.view.zoom);
+  if (state.grid) drawGrid();
+  for (const shape of state.shapes) {
+    if (shape.visible) drawShape(shape);
+    if (state.selectedIds.includes(shape.id) && shape.visible) drawSelection(shape);
+  }
+  ctx.restore();
+  updateBubbleBar();
+  repositionOpenMenus();
+}
+
+function drawGrid() {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  ctx.lineWidth = 1 / state.view.zoom;
+  ctx.beginPath();
+  for (let i = -2400; i <= 2400; i += 16) { ctx.moveTo(i, -2400); ctx.lineTo(i, 2400); ctx.moveTo(-2400, i); ctx.lineTo(2400, i); }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawShape(shape) {
+  ctx.save();
+  ctx.globalAlpha = shape.opacity / 100;
+  ctx.fillStyle = shape.fill === 'transparent' ? 'rgba(0,0,0,0)' : shape.fill;
+  ctx.strokeStyle = shape.stroke === 'none' ? 'transparent' : (shape.stroke || shape.fill);
+  ctx.lineWidth = shape.strokeWidth || 0;
+  ctx.lineCap = shape.lineCap || 'butt';
+  const c = center(shape);
+  ctx.translate(c.x, c.y);
+  ctx.rotate((shape.rotation || 0) * Math.PI / 180);
+  ctx.translate(-c.x, -c.y);
+
+  if (shape.isPolygon && shape.vertices && shape.vertices.length >= 3) {
+    ctx.beginPath();
+    ctx.moveTo(shape.vertices[0].x, shape.vertices[0].y);
+    for (let i = 1; i < shape.vertices.length; i++) ctx.lineTo(shape.vertices[i].x, shape.vertices[i].y);
+    ctx.closePath();
+    if (shape.fill !== 'transparent') ctx.fill();
+    if (shape.strokeWidth) ctx.stroke();
+  } else if (shape.type === 'rect') {
+    ctx.beginPath(); ctx.roundRect(shape.x, shape.y, shape.w, shape.h, shape.radius); ctx.fill();
+    if (shape.strokeWidth) ctx.stroke();
+  } else if (shape.type === 'ellipse') {
+    ctx.beginPath();
+    ctx.ellipse(shape.x + shape.w / 2, shape.y + shape.h / 2, Math.abs(shape.w / 2), Math.abs(shape.h / 2), 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (shape.strokeWidth) ctx.stroke();
+  } else if (shape.type === 'line') {
+    ctx.beginPath(); ctx.moveTo(shape.x, shape.y); ctx.lineTo(shape.x2, shape.y2); ctx.stroke();
+  } else if (shape.type === 'text') {
+    ctx.font = `${shape.fontWeight || 400} ${shape.fontSize}px system-ui`;
+    ctx.fillStyle = shape.fill;
+    ctx.fillText(shape.text, shape.x, shape.y);
+  }
+  ctx.restore();
+}
+
+function drawSelection(shape) {
+  const box = bounds(shape);
+  const c = center(shape);
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.rotate((shape.rotation || 0) * Math.PI / 180);
+
+  if (shape.isPolygon && shape.vertices && shape.vertices.length >= 3) {
+    if (shape.polygonEditMode) {
+      const size = 7 / state.view.zoom;
+      shape.vertices.forEach((v) => {
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = shape.locked ? '#f59e0b' : '#6366f1'; ctx.lineWidth = 2 / state.view.zoom;
+        ctx.beginPath(); ctx.arc(v.x - c.x, v.y - c.y, size, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+    } else {
+      const w = box.w, h = box.h;
+      ctx.strokeStyle = shape.locked ? '#f59e0b' : '#6366f1'; ctx.lineWidth = 1.5 / state.view.zoom;
+      ctx.setLineDash([6 / state.view.zoom, 4 / state.view.zoom]);
+      ctx.strokeRect(-w / 2 - 7, -h / 2 - 7, w + 14, h + 14);
+      ctx.setLineDash([]);
+      const size = 7 / state.view.zoom;
+      for (const [x, y] of [[-w / 2, -h / 2], [w / 2, -h / 2], [-w / 2, h / 2], [w / 2, h / 2]]) {
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = shape.locked ? '#f59e0b' : '#6366f1'; ctx.lineWidth = 2 / state.view.zoom;
+        ctx.beginPath(); ctx.rect(x - size, y - size, size * 2, size * 2); ctx.fill(); ctx.stroke();
+      }
+      if (!shape.locked) {
+        const rotateY = -h / 2 - 40 / state.view.zoom;
+        ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 1.5 / state.view.zoom;
+        ctx.beginPath(); ctx.moveTo(0, -h / 2 - 7); ctx.lineTo(0, rotateY); ctx.stroke();
+        ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.arc(0, rotateY, 10 / state.view.zoom, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, rotateY, 3.5 / state.view.zoom, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    ctx.strokeStyle = shape.locked ? '#f59e0b' : '#6366f1'; ctx.lineWidth = 1.5 / state.view.zoom;
+    ctx.setLineDash([6 / state.view.zoom, 4 / state.view.zoom]);
+    ctx.beginPath();
+    ctx.moveTo(shape.vertices[0].x - c.x, shape.vertices[0].y - c.y);
+    for (let i = 1; i < shape.vertices.length; i++) ctx.lineTo(shape.vertices[i].x - c.x, shape.vertices[i].y - c.y);
+    ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+  } else if (shape.type === 'line') {
+    const size = 7 / state.view.zoom;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2 / state.view.zoom;
+    ctx.beginPath(); ctx.rect(shape.x - c.x - size, shape.y - c.y - size, size * 2, size * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.rect(shape.x2 - c.x - size, shape.y2 - c.y - size, size * 2, size * 2); ctx.fill(); ctx.stroke();
+  } else {
+    const w = box.w, h = box.h;
+    ctx.strokeStyle = shape.locked ? '#f59e0b' : '#6366f1'; ctx.lineWidth = 1.5 / state.view.zoom;
+    ctx.setLineDash([6 / state.view.zoom, 4 / state.view.zoom]);
+    ctx.strokeRect(-w / 2 - 7, -h / 2 - 7, w + 14, h + 14);
+    ctx.setLineDash([]);
+    const size = 7 / state.view.zoom;
+    for (const [x, y] of [[-w / 2, -h / 2], [w / 2, -h / 2], [-w / 2, h / 2], [w / 2, h / 2]]) {
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = shape.locked ? '#f59e0b' : '#6366f1'; ctx.lineWidth = 2 / state.view.zoom;
+      ctx.beginPath(); ctx.rect(x - size, y - size, size * 2, size * 2); ctx.fill(); ctx.stroke();
+    }
+    if (!shape.locked) {
+      const rotateY = -h / 2 - 40 / state.view.zoom;
+      ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 1.5 / state.view.zoom;
+      ctx.beginPath(); ctx.moveTo(0, -h / 2 - 7); ctx.lineTo(0, rotateY); ctx.stroke();
+      ctx.fillStyle = '#6366f1'; ctx.beginPath(); ctx.arc(0, rotateY, 10 / state.view.zoom, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, rotateY, 3.5 / state.view.zoom, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function getForbiddenZones(includeBar = true) {
+  const zones = [];
+  const screen = { w: window.innerWidth, h: window.innerHeight };
+  zones.push({ x: 0, y: 0, w: screen.w, h: 80, label: 'topbar', priority: 100 });
+  zones.push({ x: screen.w / 2 - 80, y: screen.h - 100, w: 160, h: 100, label: 'bottomBar', priority: 50 });
+  if (state.selectedIds.length > 0) {
+    const shape = state.shapes.find(s => s.id === state.selectedIds[0]);
+    if (shape) {
+      const box = bounds(shape);
+      const shapeLeft = box.x * state.view.zoom + state.view.x;
+      const shapeRight = (box.x + box.w) * state.view.zoom + state.view.x;
+      const shapeTop = box.y * state.view.zoom + state.view.y;
+      const shapeBottom = (box.y + box.h) * state.view.zoom + state.view.y;
+      const c = center(shape);
+      const shapeCenterX = c.x * state.view.zoom + state.view.x;
+      const rotateHandleY = shapeTop - 40 * state.view.zoom;
+      zones.push({ x: Math.min(shapeLeft, shapeCenterX - 15) - 20, y: rotateHandleY - 20, w: Math.max(shapeRight - Math.min(shapeLeft, shapeCenterX - 15), 30) + 40, h: shapeBottom - rotateHandleY + 40, label: 'shape', priority: 80 });
+      if (includeBar && state.barVisible) {
+        const barRect = bubbleBar.getBoundingClientRect();
+        if (barRect.width > 0) zones.push({ x: barRect.left - 10, y: barRect.top - 10, w: barRect.width + 20, h: barRect.height + 20, label: 'bar', priority: 90 });
+      }
+    }
+  }
+  return zones;
+}
+
+function rectOverlaps(r, zones) {
+  for (const z of zones) {
+    if (!(r.x + r.w < z.x || r.x > z.x + z.w || r.y + r.h < z.y || r.y > z.y + z.h)) return z;
+  }
+  return null;
+}
+
+function setInstantPosition(element, x, y) {
+  element.classList.add('no-anim');
+  element.style.left = x + 'px'; element.style.top = y + 'px';
+  element.offsetHeight;
+  requestAnimationFrame(() => element.classList.remove('no-anim'));
+}
+
+function positionBubbleBar() {
+  if (state.selectedIds.length === 0) {
+    if (state.barVisible) { state.barVisible = false; bubbleBar.classList.remove('visible'); }
+    return;
+  }
+  const shape = state.shapes.find(s => s.id === state.selectedIds[0]);
+  const box = bounds(shape);
+  const c = center(shape);
+  const screen = { w: window.innerWidth, h: window.innerHeight };
+  const shapeLeft = box.x * state.view.zoom + state.view.x;
+  const shapeRight = (box.x + box.w) * state.view.zoom + state.view.x;
+  const shapeTop = box.y * state.view.zoom + state.view.y;
+  const shapeBottom = (box.y + box.h) * state.view.zoom + state.view.y;
+  const shapeCenterX = c.x * state.view.zoom + state.view.x;
+  const rotateHandleY = shapeTop - 40 * state.view.zoom;
+  const barRect = bubbleBar.getBoundingClientRect();
+  const barW = barRect.width || 260, barH = barRect.height || 50, gap = 16;
+  const positions = [
+    { x: shapeCenterX - barW / 2, y: shapeBottom + gap, tail: 'tail-top' },
+    { x: shapeCenterX - barW / 2, y: rotateHandleY - barH - gap, tail: 'tail-bottom' },
+    { x: shapeRight + gap, y: (shapeTop + shapeBottom) / 2 - barH / 2, tail: 'tail-left' },
+    { x: shapeLeft - barW - gap, y: (shapeTop + shapeBottom) / 2 - barH / 2, tail: 'tail-right' }
+  ];
+  const zones = getForbiddenZones(false);
+  const rotRect = { x: shapeCenterX - 15, y: rotateHandleY - 15, w: 30, h: 30 };
+  let best = positions[0], bestScore = -Infinity;
+  for (const pos of positions) {
+    let x = Math.max(8, Math.min(pos.x, screen.w - barW - 8));
+    let y = Math.max(80, Math.min(pos.y, screen.h - barH - 8));
+    const rect = { x, y, w: barW, h: barH };
+    const overlap = rectOverlaps(rect, zones);
+    const overlapsRotate = rectOverlaps(rect, [rotRect]);
+    let score = 0;
+    if (!overlap) score += 1000; else score -= overlap.priority * 10;
+    if (!overlapsRotate) score += 500; else score -= 1000;
+    score -= (Math.abs(x - pos.x) + Math.abs(y - pos.y)) * 0.5;
+    if (score > bestScore) { bestScore = score; best = { x, y, tail: pos.tail }; }
+  }
+  const wasVisible = state.barVisible;
+  state.barVisible = true;
+  if (!wasVisible) { setInstantPosition(bubbleBar, best.x, best.y); bubbleBar.className = 'bubble-bar visible ' + best.tail; } 
+  else { bubbleBar.style.left = best.x + 'px'; bubbleBar.style.top = best.y + 'px'; bubbleBar.className = 'bubble-bar visible ' + best.tail; }
+}
+
+function positionMenu(menu, anchorBtn) {
+  if (!menu.classList.contains('open')) menu.classList.add('open');
+  const screen = { w: window.innerWidth, h: window.innerHeight };
+  const btnRect = anchorBtn.getBoundingClientRect();
+  if (!menu._mW) {
+    const wasVisible = menu.style.visibility !== 'hidden';
+    if (!wasVisible) menu.style.visibility = 'hidden';
+    menu._mW = menu.offsetWidth || 240; menu._mH = menu.offsetHeight || 200;
+    if (!wasVisible) menu.style.visibility = 'visible';
+  }
+  const mW = menu._mW, mH = menu._mH;
+  const btnCenterX = btnRect.left + btnRect.width / 2;
+  const btnCenterY = btnRect.top + btnRect.height / 2;
+  const gap = 20;
+  const candidates = [
+    { x: btnCenterX - mW / 2, y: btnRect.bottom + gap, tail: 'tail-top', priority: 1 },
+    { x: btnCenterX - mW / 2, y: btnRect.top - mH - gap, tail: 'tail-bottom', priority: 2 },
+    { x: btnRect.right + gap, y: btnCenterY - mH / 2, tail: 'tail-left', priority: 3 },
+    { x: btnRect.left - mW - gap, y: btnCenterY - mH / 2, tail: 'tail-right', priority: 4 }
+  ];
+  let best = candidates[0], bestScore = -Infinity;
+  for (const cand of candidates) {
+    let x = Math.max(12, Math.min(cand.x, screen.w - mW - 12));
+    let y = Math.max(85, Math.min(cand.y, screen.h - mH - 12));
+    let score = 0;
+    const fitsX = (cand.x >= 12 && cand.x + mW <= screen.w - 12);
+    const fitsY = (cand.y >= 85 && cand.y + mH <= screen.h - 12);
+    if (fitsX && fitsY) score += 1000; else score -= 100;
+    if (cand.tail === 'tail-top' || cand.tail === 'tail-bottom') score += 50;
+    if (score > bestScore) { bestScore = score; best = { x, y, tail: cand.tail }; }
+  }
+  const isFirstShow = state.menuFirstFrame.has(menu);
+  if (isFirstShow) {
+    menu.classList.add('no-anim'); menu.style.left = best.x + 'px'; menu.style.top = best.y + 'px';
+    menu.offsetHeight; menu.classList.remove('no-anim'); state.menuFirstFrame.delete(menu);
+  } else { menu.style.left = best.x + 'px'; menu.style.top = best.y + 'px'; }
+  let tailX = Math.max(20, Math.min(btnCenterX - best.x, mW - 20));
+  let tailY = Math.max(20, Math.min(btnCenterY - best.y, mH - 20));
+  menu.style.setProperty('--tail-x', `${tailX}px`); menu.style.setProperty('--tail-y', `${tailY}px`);
+  let classes = 'bubble-menu open ' + best.tail;
+  if (isFirstShow) classes += ' no-anim';
+  menu.className = classes;
+}
+
+function repositionOpenMenus() {
+  if (!state.activeMenu || dragMenu) return;
+  const anchorBtn = state.activeMenu === fillMenu ? $('btnFill') : state.activeMenu === strokeMenu ? $('btnStroke') : state.activeMenu === propsMenu ? $('btnProps') : state.activeMenu === bgMenu ? $('bgBtn') : null;
+  if (anchorBtn) positionMenu(state.activeMenu, anchorBtn);
+}
+
+function updateBubbleBar() { positionBubbleBar(); }
+
+function closeAllMenus() {
+  fillMenu.classList.remove('open', 'no-anim', 'dragging');
+  strokeMenu.classList.remove('open', 'no-anim', 'dragging');
+  propsMenu.classList.remove('open', 'no-anim', 'dragging');
+  bgMenu.classList.remove('open', 'no-anim', 'dragging');
+  state.activeMenu = null;
+  setActiveBarBtn(null);
+}
+
+function toggleMenu(menu, btn) {
+  if (state.activeMenu === menu) { closeAllMenus(); return; }
+  closeAllMenus();
+  state.menuFirstFrame.add(menu);
+  positionMenu(menu, btn);
+  state.activeMenu = menu;
+  setActiveBarBtn(btn);
+}
+
+function addRecentColor(hex) {
+  if (!hex || hex === 'transparent') return;
+  state.recentColors = state.recentColors.filter(c => c !== hex);
+  state.recentColors.unshift(hex);
+  if (state.recentColors.length > 3) state.recentColors.pop();
+  scheduleSave();
+}
+
+function renderCustomColors(targetId, isFill) {
+  const grid = $(targetId);
+  grid.innerHTML = '';
+  
+  const pickerBtn = document.createElement('div');
+  pickerBtn.className = 'color-swatch rainbow';
+  pickerBtn.title = 'Свой цвет';
+  pickerBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.pickerTarget = isFill ? 'fill' : 'stroke';
+    openPicker();
+  });
+  grid.appendChild(pickerBtn);
+  
+  state.recentColors.forEach(color => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch';
+    swatch.style.background = color;
+    swatch.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const shape = selected();
+      if (!shape) return;
+      snapshot();
+      if (isFill) {
+        shape.fill = color;
+        showToast('Цвет заливки: ' + color);
+      } else {
+        shape.stroke = color;
+        showToast('Цвет контура: ' + color);
+      }
+      addRecentColor(color);
+      renderCustomColors('customFillGrid', true);
+      renderCustomColors('customStrokeGrid', false);
+      render();
+    });
+    grid.appendChild(swatch);
+  });
+}
+
+function syncUI() {
+  const shape = selected();
+  $('gridBtn').classList.toggle('active', state.grid);
+  const hasSelection = state.selectedIds.length > 0;
+  $('layerUpBtn').disabled = !hasSelection;
+  $('layerDownBtn').disabled = !hasSelection;
+  $('layerRenameBtn').disabled = !hasSelection;
+
+  const fillBtn = $('btnFill');
+  fillBtn.classList.remove('hidden-btn');
+  
+  if (shape) {
+    $('opacity').value = shape.opacity; $('opacityVal').textContent = shape.opacity + '%';
+    $('strokeWidth').value = shape.strokeWidth || 0; $('strokeVal').textContent = shape.strokeWidth || 0;
+    $('polygonSection').style.display = (shape.type === 'rect' || shape.type === 'freeform') ? 'block' : 'none';
+    if (shape.type === 'rect' || shape.type === 'freeform') {
+      if (shape.polygonEditMode) {
+        $('togglePolygonBtn').textContent = 'Режим редактирования активен (нажмите для выхода)';
+        $('togglePolygonBtn').classList.add('primary');
+        $('togglePolygonBtn').disabled = false;
+        $('togglePolygonBtn').style.opacity = '1';
+      } else {
+        $('togglePolygonBtn').textContent = 'Включить редактирование точек';
+        $('togglePolygonBtn').classList.add('primary');
+        $('togglePolygonBtn').disabled = false;
+        $('togglePolygonBtn').style.opacity = '1';
+      }
+      $('radiusSection').style.display = (shape.type === 'rect' && !shape.isPolygon) ? 'block' : 'none';
+    }
+    if ((shape.type === 'rect' || shape.type === 'freeform') && !shape.isPolygon) {
+      $('radius').value = shape.radius || 0; $('radiusVal').textContent = shape.radius || 0;
+    }
+    $('fontSizeSection').style.display = shape.type === 'text' ? 'block' : 'none';
+    if (shape.type === 'text') {
+      $('fontSize').value = shape.fontSize || 28; $('fontSizeVal').textContent = shape.fontSize || 28;
+    }
+  }
+  renderCustomColors('customFillGrid', true);
+  renderCustomColors('customStrokeGrid', false);
+  renderLayers();
+}
+
+function renderLayers() {
+  const container = $('layers');
+  container.innerHTML = '';
+  
+  if (state.isExportMode) {
+    container.style.display = 'none';
+    $('layerBar').style.display = 'none';
+    return;
+  }
+  
+  container.style.display = 'block';
+  $('layerBar').style.display = 'flex';
+  
+  if (!state.shapes.length) {
+    container.innerHTML = '<div style="text-align:center; color:var(--muted); padding:20px; font-size:13px;">Нет объектов</div>';
+    return;
+  }
+  [...state.shapes].reverse().forEach(shape => {
+    const row = document.createElement('div');
+    row.className = 'layer-item' + (state.selectedIds.includes(shape.id) ? ' selected' : '') + (shape.locked ? ' locked' : '');
+    const icons = { freeform: '<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>', rect: '<rect x="4" y="6" width="16" height="12" rx="1"/>', ellipse: '<ellipse cx="12" cy="12" rx="8" ry="6.5"/>', line: '<path d="M5 19 19 5"/>', text: '<path d="M5 6h14M12 6v13"/>' };
+    row.innerHTML = `
+      <input type="checkbox" class="layer-check" data-id="${shape.id}" ${state.selectedIds.includes(shape.id) ? 'checked' : ''}>
+      <div class="layer-icon"><svg viewBox="0 0 24 24">${icons[shape.type] || icons.rect}</svg></div>
+      <div class="layer-info"><div class="layer-name">${shape.name}${shape.locked ? ' 🔒' : ''}</div><div class="layer-type">${shape.type}${shape.isPolygon ? ' (полигон)' : ''}</div></div>
+      <div class="layer-actions">
+        <button class="layer-action-btn ${shape.visible ? '' : 'vis-off'}" data-action="vis" title="Видимость"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="layer-action-btn ${shape.locked ? 'lock-active' : ''}" data-action="lock" title="Блокировка"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></button>
+      </div>
+    `;
+    
+    row.querySelector('.layer-check').addEventListener('change', (e) => {
+      e.stopPropagation();
+      if (e.target.checked) {
+        if (!state.selectedIds.includes(shape.id)) state.selectedIds.push(shape.id);
+      } else {
+        state.selectedIds = state.selectedIds.filter(id => id !== shape.id);
+      }
+      syncUI(); render();
+    });
+
+    row.addEventListener('click', e => {
+      e.stopPropagation();
+      if (e.target.classList.contains('layer-check')) return;
+      
+      const action = e.target.closest('[data-action]');
+      if (action) {
+        const act = action.dataset.action;
+        if (act === 'vis') { snapshot(); shape.visible = !shape.visible; renderLayers(); render(); return; }
+        if (act === 'lock') { snapshot(); shape.locked = !shape.locked; renderLayers(); syncUI(); render(); showToast(shape.locked ? 'Объект заблокирован' : 'Объект разблокирован'); return; }
+      }
+      
+      if (shape.groupId) {
+        state.selectedIds = state.shapes.filter(s => s.groupId === shape.groupId).map(s => s.id);
+      } else {
+        state.selectedIds = [shape.id];
+      }
+      renderLayers(); syncUI(); render();
+    });
+    container.appendChild(row);
+  });
+}
+
+function moveSelectedLayer(direction) {
+  if (state.selectedIds.length !== 1) return;
+  const idx = state.shapes.findIndex(s => s.id === state.selectedIds[0]);
+  if (idx === -1) return;
+  const target = direction === 'up' ? idx + 1 : idx - 1;
+  if (target < 0 || target >= state.shapes.length) return;
+  snapshot();
+  const [item] = state.shapes.splice(idx, 1);
+  state.shapes.splice(target, 0, item);
+  renderLayers(); render();
+}
+
+function renameSelectedLayer() {
+  const shape = selected();
+  if (!shape) return;
+  const newName = prompt("Новое название:", shape.name);
+  if (newName && newName.trim() !== "") { snapshot(); shape.name = newName.trim(); renderLayers(); render(); }
+}
+
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  return { r: parseInt(value.slice(0, 2), 16), g: parseInt(value.slice(2, 4), 16), b: parseInt(value.slice(4, 6), 16) };
+}
+function rgbToHex(rgb) { return '#' + [rgb.r, rgb.g, rgb.b].map(v => v.toString(16).padStart(2, '0')).join(''); }
+function rgbToHsv(rgb) {
+  const r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return { h, s: max ? d / max * 100 : 0, v: max * 100 };
+}
+function hsvToRgb(h, s, v) {
+  s /= 100; v /= 100;
+  const k = n => (n + h / 60) % 6;
+  const f = n => v - v * s * Math.max(0, Math.min(k(n), 4 - k(n), 1));
+  return { r: Math.round(f(5) * 255), g: Math.round(f(3) * 255), b: Math.round(f(1) * 255) };
+}
+
+function drawSV() {
+  const canvasEl = $('svCanvas');
+  const rect = canvasEl.getBoundingClientRect();
+  const dpr = devicePixelRatio || 1;
+  canvasEl.width = rect.width * dpr; canvasEl.height = rect.height * dpr;
+  const c = canvasEl.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const base = hsvToRgb(hsv.h, 100, 100);
+  c.fillStyle = `rgb(${base.r},${base.g},${base.b})`;
+  c.fillRect(0, 0, rect.width, rect.height);
+  const white = c.createLinearGradient(0, 0, rect.width, 0);
+  white.addColorStop(0, '#fff'); white.addColorStop(1, 'transparent');
+  c.fillStyle = white; c.fillRect(0, 0, rect.width, rect.height);
+  const black = c.createLinearGradient(0, 0, 0, rect.height);
+  black.addColorStop(0, 'transparent'); black.addColorStop(1, '#000');
+  c.fillStyle = black; c.fillRect(0, 0, rect.width, rect.height);
+}
+
+function updatePickerUI() {
+  const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
+  const hex = rgbToHex(rgb);
+  $('resultBox').style.background = hex;
+  $('resultText').textContent = `${hex} · ${Math.round(hsv.a * 100)}%`;
+  $('svDot').style.left = hsv.s + '%'; $('svDot').style.top = (100 - hsv.v) + '%';
+  $('hueDot').style.left = (hsv.h / 360 * 100) + '%'; $('alphaDot').style.left = (hsv.a * 100) + '%';
+  $('alphaArea').style.color = hex;
+}
+
+function updateSV(e) {
+  const rect = $('svArea').getBoundingClientRect();
+  hsv.s = Math.min(100, Math.max(0, (e.clientX - rect.left) / rect.width * 100));
+  hsv.v = Math.min(100, Math.max(0, 100 - (e.clientY - rect.top) / rect.height * 100));
+  updatePickerUI();
+}
+function updateHue(e) {
+  const rect = $('hueArea').getBoundingClientRect();
+  hsv.h = Math.min(360, Math.max(0, (e.clientX - rect.left) / rect.width * 360));
+  drawSV(); updatePickerUI();
+}
+function updateAlpha(e) {
+  const rect = $('alphaArea').getBoundingClientRect();
+  hsv.a = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  updatePickerUI();
+}
+
+function openPicker() {
+  const shape = selected();
+  const colorHex = state.pickerTarget === 'stroke' ? (shape && shape.stroke === 'none' ? '#ffffff' : (shape ? shape.stroke : '#ffffff')) : (shape ? shape.fill : '#6366f1');
+  const rgb = hexToRgb(colorHex === 'transparent' ? '#ffffff' : colorHex);
+  const converted = rgbToHsv(rgb);
+  hsv = { h: converted.h, s: converted.s, v: converted.v, a: shape ? shape.opacity / 100 : 1 };
+  picker.classList.add('open');
+  requestAnimationFrame(() => { drawSV(); updatePickerUI(); });
+}
+
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (state.eyedropper) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const p = ctx.getImageData(x, y, 1, 1).data;
+    const hex = '#' + [p[0], p[1], p[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+    const shape = selected();
+    if (shape) {
+      snapshot();
+      if (state.pickerTarget === 'stroke') shape.stroke = hex;
+      else shape.fill = hex;
+      addRecentColor(hex);
+      render();
+      showToast('Цвет выбран: ' + hex);
+    }
+    state.eyedropper = false;
+    document.body.classList.remove('eyedropper-active');
+    return;
+  }
+
+  if (pointers.size === 2) {
+    moveTarget = null; resizeHandle = null; rotateMode = false; panMode = false;
+    gesture = { center: pointerCenter(), distance: pointerDistance(), view: { ...state.view } };
+    return;
+  }
+
+  const point = toWorld(e.clientX, e.clientY);
+  const shape = selected();
+  const handle = handleAt(point, shape);
+
+  if (shape && shape.isPolygon && shape.polygonEditMode && shape.vertices) {
+    if (handle && handle.type === 'vertex') {
+      const now = Date.now();
+      if (now - lastVertexTap < 300 && lastVertexIndex === handle.index) {
+        if (shape.vertices.length > 3) { snapshot(); shape.vertices.splice(handle.index, 1); render(); showToast('Точка удалена'); } 
+        else { showToast('Минимум 3 точки'); }
+        lastVertexTap = 0; lastVertexIndex = -1; return;
+      }
+      lastVertexTap = now; lastVertexIndex = handle.index; resizeHandle = handle; return;
+    }
+    if (handle && handle.type === 'segment') {
+      snapshot(); shape.vertices.splice(handle.index + 1, 0, { x: snap(handle.proj.x), y: snap(handle.proj.y) }); render(); showToast('Точка добавлена'); return;
+    }
+  }
+
+  if (handle === 'rotate') {
+    rotateMode = true; rotateOriginal = shape.rotation || 0;
+    const c = center(shape); rotateStartAngle = Math.atan2(point.y - c.y, point.x - c.x); return;
+  }
+  if (handle && typeof handle === 'string') {
+    resizeHandle = handle; resizeStart = JSON.parse(JSON.stringify(shape)); return;
+  }
+  const hit = hitTest(point);
+  if (hit) {
+    if (hit.groupId) {
+      state.selectedIds = state.shapes.filter(s => s.groupId === hit.groupId).map(s => s.id);
+    } else {
+      state.selectedIds = [hit.id];
+    }
+    moveTarget = hit; moveStart = point;
+    syncUI(); render(); return;
+  }
+  state.selectedIds = []; panMode = true;
+  panStart = { x: e.clientX - state.view.x, y: e.clientY - state.view.y };
+  closeAllMenus(); syncUI(); render();
+});
+
+canvas.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pointers.size === 2 && gesture) {
+    const currentCenter = pointerCenter();
+    const currentDist = pointerDistance();
+    const scaleFactor = currentDist / gesture.distance;
+    const newZoom = Math.min(5, Math.max(0.2, gesture.view.zoom * scaleFactor));
+    const rect = canvas.getBoundingClientRect();
+    const mouseWorldX = currentCenter.x - rect.left;
+    const mouseWorldY = currentCenter.y - rect.top;
+    state.view.x = mouseWorldX - (mouseWorldX - gesture.view.x) * scaleFactor;
+    state.view.y = mouseWorldY - (mouseWorldY - gesture.view.y) * scaleFactor;
+    state.view.zoom = newZoom;
+    render(); return;
+  }
+
+  const point = toWorld(e.clientX, e.clientY);
+  if (panMode && panStart) { state.view.x = e.clientX - panStart.x; state.view.y = e.clientY - panStart.y; render(); return; }
+  if (rotateMode) {
+    const shape = selected(); if (!shape || shape.locked) return;
+    const c = center(shape);
+    const angle = Math.atan2(point.y - c.y, point.x - c.x);
+    let delta = (angle - rotateStartAngle) * 180 / Math.PI;
+    shape.rotation = Math.round(rotateOriginal + delta);
+    if (state.grid) shape.rotation = Math.round(shape.rotation / 5) * 5;
+    syncUI(); render(); return;
+  }
+  if (moveTarget) {
+    if (moveTarget.locked) return;
+    const dx = point.x - moveStart.x, dy = point.y - moveStart.y;
+    const targets = moveTarget.groupId ? state.shapes.filter(s => s.groupId === moveTarget.groupId) : [moveTarget];
+    targets.forEach(t => {
+      t.x = snap(t.x + dx); t.y = snap(t.y + dy);
+      if (t.type === 'line') { t.x2 = snap(t.x2 + dx); t.y2 = snap(t.y2 + dy); } 
+      else if (t.isPolygon && t.vertices) { t.vertices = t.vertices.map(v => ({ x: snap(v.x + dx), y: snap(v.y + dy) })); }
+    });
+    moveStart = point; render(); return;
+  }
+  if (resizeHandle) {
+    const shape = selected(); if (!shape || shape.locked) return;
+    if (typeof resizeHandle === 'object' && resizeHandle.type === 'vertex') {
+      const v = shape.vertices[resizeHandle.index]; v.x = snap(point.x); v.y = snap(point.y); render(); return;
+    }
+    if (shape.type === 'line') {
+      if (resizeHandle === 'start') { shape.x = snap(point.x); shape.y = snap(point.y); } 
+      else if (resizeHandle === 'end') { shape.x2 = snap(point.x); shape.y2 = snap(point.y); }
+      render(); return;
+    }
+    if (shape.isPolygon && shape.vertices) {
+      const oldBox = bounds(resizeStart);
+      let left = oldBox.x, top = oldBox.y, right = oldBox.x + oldBox.w, bottom = oldBox.y + oldBox.h;
+      if (resizeHandle.includes('w')) left = snap(point.x);
+      if (resizeHandle.includes('e')) right = snap(point.x);
+      if (resizeHandle.includes('n')) top = snap(point.y);
+      if (resizeHandle.includes('s')) bottom = snap(point.y);
+      const newW = right - left, newH = bottom - top;
+      if (Math.abs(newW) > 5 && Math.abs(newH) > 5) {
+        const scaleX = newW / oldBox.w, scaleY = newH / oldBox.h;
+        const cx = oldBox.x + oldBox.w / 2, cy = oldBox.y + oldBox.h / 2;
+        shape.vertices = resizeStart.vertices.map(v => ({ x: cx + (v.x - cx) * scaleX, y: cy + (v.y - cy) * scaleY }));
+      }
+      render(); return;
+    }
+    const original = resizeStart; const box = bounds(original);
+    let left = box.x, top = box.y, right = box.x + box.w, bottom = box.y + box.h;
+    if (resizeHandle.includes('w')) left = snap(point.x);
+    if (resizeHandle.includes('e')) right = snap(point.x);
+    if (resizeHandle.includes('n')) top = snap(point.y);
+    if (resizeHandle.includes('s')) bottom = snap(point.y);
+    shape.x = left; shape.y = top; shape.w = right - left; shape.h = bottom - top;
+    if (shape.type === 'text') {
+      const scale = Math.max(.2, shape.w / Math.max(1, box.w));
+      shape.fontSize = Math.max(8, Math.round(original.fontSize * scale));
+    }
+    render();
+  }
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (moveTarget || resizeHandle || rotateMode || panMode) snapshot();
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) gesture = null;
+  moveTarget = null; resizeHandle = null; rotateMode = false; panMode = false; panStart = null;
+});
+canvas.addEventListener('pointercancel', e => {
+  pointers.delete(e.pointerId); gesture = null; moveTarget = null; resizeHandle = null; rotateMode = false; panMode = false; render();
+});
+
+let lastTap = 0;
+canvas.addEventListener('pointerup', e => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    const point = toWorld(e.clientX, e.clientY);
+    const hit = hitTest(point);
+    if (hit && hit.type === 'text') {
+      const newText = prompt("Введите текст:", hit.text);
+      if (newText !== null && newText.trim() !== "") { snapshot(); hit.text = newText.trim(); render(); showToast('Текст изменён'); }
+    }
+  }
+  lastTap = now;
+});
+
+function pointerCenter() { const vals = [...pointers.values()]; if (vals.length < 2) return vals[0] || {x:0,y:0}; return { x: (vals[0].x + vals[1].x) / 2, y: (vals[0].y + vals[1].y) / 2 }; }
+function pointerDistance() { const vals = [...pointers.values()]; if (vals.length < 2) return 0; return Math.hypot(vals[0].x - vals[1].x, vals[0].y - vals[1].y); }
+
+function setupMenuDrag(menu) {
+  menu.addEventListener('pointerdown', e => {
+    if (e.target.closest('.color-swatch') || e.target.closest('input') || e.target.closest('button')) return;
+    e.stopPropagation();
+    dragMenu = menu;
+    const rect = menu.getBoundingClientRect();
+    dragMenuStartX = e.clientX; dragMenuStartY = e.clientY;
+    dragMenuOrigLeft = rect.left; dragMenuOrigTop = rect.top;
+    menu.classList.add('dragging'); menu.setPointerCapture(e.pointerId);
+  });
+  menu.addEventListener('pointermove', e => {
+    if (dragMenu !== menu) return;
+    e.preventDefault();
+    menu.style.left = (dragMenuOrigLeft + e.clientX - dragMenuStartX) + 'px';
+    menu.style.top = (dragMenuOrigTop + e.clientY - dragMenuStartY) + 'px';
+  });
+  menu.addEventListener('pointerup', () => { 
+    if (dragMenu) { dragMenu.classList.remove('dragging'); dragMenu = null; } 
+  });
+  menu.addEventListener('pointercancel', () => { 
+    if (dragMenu) { dragMenu.classList.remove('dragging'); dragMenu = null; } 
+  });
+}
+setupMenuDrag(fillMenu); setupMenuDrag(strokeMenu); setupMenuDrag(propsMenu); setupMenuDrag(bgMenu);
+
+$('addBtn').addEventListener('click', () => addMenu.classList.toggle('open'));
+document.querySelectorAll('.add-item').forEach(btn => btn.addEventListener('click', () => addShape(btn.dataset.type)));
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#addBtn') && !e.target.closest('#addMenu')) addMenu.classList.remove('open');
+  if (panel.classList.contains('open') && !e.target.closest('#panel') && !e.target.closest('.icon-btn') && !e.target.closest('.export-btn-main')) panel.classList.remove('open');
+  if (!e.target.closest('.bubble-menu') && !e.target.closest('.bubble-btn') && !e.target.closest('.layer-check') && !e.target.closest('.layer-item')) closeAllMenus();
+});
+
+$('btnFill').addEventListener('click', e => { e.stopPropagation(); state.pickerTarget = 'fill'; toggleMenu(fillMenu, e.currentTarget); });
+$('btnStroke').addEventListener('click', e => { e.stopPropagation(); state.pickerTarget = 'stroke'; toggleMenu(strokeMenu, e.currentTarget); });
+$('btnProps').addEventListener('click', e => { e.stopPropagation(); toggleMenu(propsMenu, e.currentTarget); });
+$('bgBtn').addEventListener('click', e => { e.stopPropagation(); toggleMenu(bgMenu, e.currentTarget); });
+
+$('btnEyedropper').addEventListener('click', e => {
+  e.stopPropagation(); state.eyedropper = true; state.pickerTarget = 'fill'; document.body.classList.add('eyedropper-active'); closeAllMenus(); showToast('Нажмите на холст чтобы выбрать цвет');
+});
+$('btnDuplicate').addEventListener('click', e => { e.stopPropagation(); duplicateSelected(); });
+$('btnDelete').addEventListener('click', e => { e.stopPropagation(); deleteSelected(); });
+
+document.querySelectorAll('#fillColorGrid .color-swatch').forEach(dot => {
+  dot.addEventListener('click', e => {
+    e.stopPropagation();
+    snapshot(); const shape = selected(); if(!shape) return; shape.fill = dot.dataset.color; addRecentColor(dot.dataset.color); render(); showToast('Цвет заливки: ' + dot.dataset.color);
+  });
+});
+document.querySelectorAll('#strokeColorGrid .color-swatch').forEach(dot => {
+  dot.addEventListener('click', e => {
+    e.stopPropagation();
+    const shape = selected(); if(!shape) return; snapshot(); shape.stroke = dot.dataset.stroke; addRecentColor(dot.dataset.stroke); render(); showToast('Цвет контура: ' + dot.dataset.stroke);
+  });
+});
+
+document.querySelectorAll('#bgColorGrid .color-swatch').forEach(dot => {
+  dot.addEventListener('click', e => {
+    e.stopPropagation();
+    if (dot.id === 'openBgPicker') { state.pickerTarget = 'bg'; openPicker(); } 
+    else { 
+      state.background = dot.dataset.bg; 
+      addRecentColor(dot.dataset.bg); 
+      render(); 
+      showToast('Фон: ' + (dot.dataset.bg === 'transparent' ? 'прозрачный' : dot.dataset.bg)); 
+      scheduleSave();
+      closeAllMenus(); 
+    }
+  });
+});
+
+$('strokeWidth').addEventListener('input', e => { const shape = selected(); if(!shape) return; shape.strokeWidth = Number(e.target.value); $('strokeVal').textContent = shape.strokeWidth; render(); });
+$('opacity').addEventListener('input', e => { const shape = selected(); if(!shape) return; shape.opacity = Number(e.target.value); $('opacityVal').textContent = shape.opacity + '%'; render(); });
+
+$('togglePolygonBtn').addEventListener('click', () => {
+  const shape = selected(); if (!shape || (shape.type !== 'rect' && shape.type !== 'freeform')) return;
+  snapshot();
+  if (shape.polygonEditMode) {
+    shape.polygonEditMode = false;
+    showToast('Режим точек выключен, форма сохранена');
+  } else {
+    shape.isPolygon = true; shape.polygonEditMode = true;
+    if (!shape.vertices) {
+      shape.vertices = [ { x: shape.x, y: shape.y }, { x: shape.x + shape.w, y: shape.y }, { x: shape.x + shape.w, y: shape.y + shape.h }, { x: shape.x, y: shape.y + shape.h } ];
+    }
+    showToast('Режим редактирования точек включён');
+  }
+  syncUI(); render();
+});
+
+$('radius').addEventListener('input', e => { const shape = selected(); if(!shape || shape.type !== 'rect' || shape.isPolygon) return; shape.radius = Number(e.target.value); $('radiusVal').textContent = shape.radius; render(); });
+$('fontSize').addEventListener('input', e => { const shape = selected(); if(!shape || shape.type !== 'text') return; shape.fontSize = Number(e.target.value); $('fontSizeVal').textContent = shape.fontSize; render(); });
+
+$('cancelPicker').addEventListener('click', () => picker.classList.remove('open'));
+$('applyPicker').addEventListener('click', () => {
+  const rgb = hsvToRgb(hsv.h, hsv.s, hsv.v);
+  const hex = rgbToHex(rgb);
+  if (state.pickerTarget === 'stroke') {
+    const shape = selected(); if(!shape) return; snapshot(); shape.stroke = hex; addRecentColor(hex); showToast('Цвет контура: ' + hex);
+  } else if (state.pickerTarget === 'bg') {
+    state.background = hex; addRecentColor(hex); showToast('Фон: ' + hex); scheduleSave();
+  } else {
+    const shape = selected(); if(!shape) return; snapshot(); shape.fill = hex; shape.opacity = Math.round(hsv.a * 100); addRecentColor(hex); showToast('Цвет заливки: ' + hex);
+  }
+  syncUI(); render(); picker.classList.remove('open');
+});
+
+['svArea', 'hueArea', 'alphaArea'].forEach(id => {
+  $(id).addEventListener('pointerdown', e => { $(id).setPointerCapture(e.pointerId); if(id==='svArea') updateSV(e); if(id==='hueArea') updateHue(e); if(id==='alphaArea') updateAlpha(e); });
+  $(id).addEventListener('pointermove', e => { if (e.buttons) { if(id==='svArea') updateSV(e); if(id==='hueArea') updateHue(e); if(id==='alphaArea') updateAlpha(e); } });
+});
+
+$('gridBtn').addEventListener('click', () => { 
+  state.grid = !state.grid; 
+  syncUI(); 
+  render(); 
+  scheduleSave();
+  showToast('Сетка' + (state.grid ? ' и привязка вкл' : ' и привязка выкл')); 
+});
+$('undoBtn').addEventListener('click', undo);
+$('redoBtn').addEventListener('click', redo);
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') { e.preventDefault(); deleteSelected(); }
+  }
+});
+
+$('layersBtn').addEventListener('click', () => {
+  state.isExportMode = false;
+  $('exportBlock').hidden = true; $('panelTitle').textContent = 'Слои'; $('panelSub').textContent = 'Объекты';
+  panel.classList.add('open'); renderLayers(); syncUI();
+});
+
+$('layerUpBtn').addEventListener('click', () => moveSelectedLayer('up'));
+$('layerDownBtn').addEventListener('click', () => moveSelectedLayer('down'));
+$('layerRenameBtn').addEventListener('click', renameSelectedLayer);
+$('layerClearBtn').addEventListener('click', clearAllState);
+
+$('exportBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  state.isExportMode = true;
+  $('exportBlock').hidden = false; 
+  $('panelTitle').textContent = 'Экспорт'; 
+  $('panelSub').textContent = 'HTML / PNG'; 
+  $('layerBar').style.display = 'none';
+  $('exportCode').style.display = 'none'; 
+  $('exportCodeActions').style.display = 'none';
+  panel.classList.add('open'); 
+  renderLayers();
+});
+
+$('exportHtmlBtn').addEventListener('click', () => {
+  generateHTMLExport();
+  $('exportCode').style.display = 'block';
+  $('exportCodeActions').style.display = 'flex';
+  showToast('HTML код сгенерирован');
+});
+
+$('exportPngBtn').addEventListener('click', () => { exportPNG(); });
+
+$('closePanel').addEventListener('click', () => { panel.classList.remove('open'); state.isExportMode = false; });
+$('copyCode').addEventListener('click', () => { navigator.clipboard.writeText($('exportCode').value); showToast('Код скопирован'); });
+$('previewCode').addEventListener('click', () => {
+  const html = $('exportCode').value;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  showToast('Предпросмотр открыт');
+});
+$('downloadCode').addEventListener('click', () => {
+  const blob = new Blob([$('exportCode').value], { type: 'text/html' });
+  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'export.html'; link.click();
+  showToast('Файл скачан');
+});
+
+$('helpBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  window.location.href = 'faq.html';
+});
+
+function generateHTMLExport() {
+  const visible = state.shapes.filter(s => s.visible !== false);
+  if (!visible.length) { $('exportCode').value = '<!-- Пусто -->'; return; }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  visible.forEach(s => {
+    const b = bounds(s);
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+  });
+  
+  const padding = 20;
+  const width = maxX - minX + padding * 2;
+  const height = maxY - minY + padding * 2;
+  const viewBox = `${minX - padding} ${minY - padding} ${width} ${height}`;
+  const bgColor = state.background === 'transparent' ? '#ffffff' : state.background;
+
+  let html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      width: 100vw; height: 100vh; 
+      display: flex; align-items: center; justify-content: center; 
+      background: ${bgColor}; overflow: hidden; 
+    }
+    svg { 
+      max-width: 100%; max-height: 100%; 
+      width: auto; height: auto; 
+    }
+  </style>
+</head>
+<body>
+  <svg viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg">
+`;
+
+  visible.forEach(s => {
+    const opacity = s.opacity < 100 ? ` opacity="${s.opacity / 100}"` : '';
+    const stroke = s.stroke !== 'none' && s.strokeWidth > 0 ? ` stroke="${s.stroke}" stroke-width="${s.strokeWidth}"` : '';
+    
+    if (s.isPolygon && s.vertices && s.vertices.length >= 3) {
+      const points = s.vertices.map(v => `${v.x},${v.y}`).join(' ');
+      const fill = s.fill === 'transparent' ? 'none' : s.fill;
+      html += `    <polygon points="${points}" fill="${fill}"${stroke}${opacity} />\n`;
+    } else if (s.type === 'rect') {
+      const fill = s.fill === 'transparent' ? 'none' : s.fill;
+      const radius = s.radius > 0 ? ` rx="${s.radius}" ry="${s.radius}"` : '';
+      html += `    <rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"${radius} fill="${fill}"${stroke}${opacity} />\n`;
+    } else if (s.type === 'ellipse') {
+      const fill = s.fill === 'transparent' ? 'none' : s.fill;
+      const cx = s.x + s.w / 2, cy = s.y + s.h / 2, rx = Math.abs(s.w / 2), ry = Math.abs(s.h / 2);
+      html += `    <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fill}"${stroke}${opacity} />\n`;
+    } else if (s.type === 'line') {
+      const cap = s.lineCap === 'round' ? ' stroke-linecap="round"' : '';
+      html += `    <line x1="${s.x}" y1="${s.y}" x2="${s.x2}" y2="${s.y2}" stroke="${s.stroke}" stroke-width="${s.strokeWidth}"${cap}${opacity} />\n`;
+    } else if (s.type === 'text') {
+      html += `    <text x="${s.x}" y="${s.y}" fill="${s.fill}" font-size="${s.fontSize}" font-weight="${s.fontWeight || 400}" font-family="system-ui, sans-serif"${opacity}>${s.text}</text>\n`;
+    }
+  });
+
+  html += `  </svg>\n</body>\n</html>`;
+  $('exportCode').value = html;
+}
+
+function exportPNG() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = devicePixelRatio || 1;
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = rect.width * dpr;
+  exportCanvas.height = rect.height * dpr;
+  const exportCtx = exportCanvas.getContext('2d');
+  
+  exportCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (state.background !== 'transparent') {
+    exportCtx.fillStyle = state.background;
+    exportCtx.fillRect(0, 0, rect.width, rect.height);
+  }
+  
+  exportCtx.save();
+  exportCtx.translate(state.view.x, state.view.y);
+  exportCtx.scale(state.view.zoom, state.view.zoom);
+  
+  for (const shape of state.shapes) {
+    if (!shape.visible) continue;
+    exportCtx.globalAlpha = shape.opacity / 100;
+    exportCtx.fillStyle = shape.fill === 'transparent' ? 'rgba(0,0,0,0)' : shape.fill;
+    exportCtx.strokeStyle = shape.stroke === 'none' ? 'transparent' : (shape.stroke || shape.fill);
+    exportCtx.lineWidth = shape.strokeWidth || 0;
+    exportCtx.lineCap = shape.lineCap || 'butt';
+    const c = center(shape);
+    exportCtx.translate(c.x, c.y);
+    exportCtx.rotate((shape.rotation || 0) * Math.PI / 180);
+    exportCtx.translate(-c.x, -c.y);
+
+    if (shape.isPolygon && shape.vertices && shape.vertices.length >= 3) {
+      exportCtx.beginPath();
+      exportCtx.moveTo(shape.vertices[0].x, shape.vertices[0].y);
+      for (let i = 1; i < shape.vertices.length; i++) exportCtx.lineTo(shape.vertices[i].x, shape.vertices[i].y);
+      exportCtx.closePath();
+      if (shape.fill !== 'transparent') exportCtx.fill();
+      if (shape.strokeWidth) exportCtx.stroke();
+    } else if (shape.type === 'rect') {
+      exportCtx.beginPath(); exportCtx.roundRect(shape.x, shape.y, shape.w, shape.h, shape.radius); exportCtx.fill();
+      if (shape.strokeWidth) exportCtx.stroke();
+    } else if (shape.type === 'ellipse') {
+      exportCtx.beginPath();
+      exportCtx.ellipse(shape.x + shape.w / 2, shape.y + shape.h / 2, Math.abs(shape.w / 2), Math.abs(shape.h / 2), 0, 0, Math.PI * 2);
+      exportCtx.fill();
+      if (shape.strokeWidth) exportCtx.stroke();
+    } else if (shape.type === 'line') {
+      exportCtx.beginPath(); exportCtx.moveTo(shape.x, shape.y); exportCtx.lineTo(shape.x2, shape.y2); exportCtx.stroke();
+    } else if (shape.type === 'text') {
+      exportCtx.font = `${shape.fontWeight || 400} ${shape.fontSize}px system-ui`;
+      exportCtx.fillStyle = shape.fill;
+      exportCtx.fillText(shape.text, shape.x, shape.y);
+    }
+    exportCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    exportCtx.translate(state.view.x, state.view.y);
+    exportCtx.scale(state.view.zoom, state.view.zoom);
+  }
+  exportCtx.restore();
+  
+  exportCanvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'export.png';
+    link.click();
+    showToast('PNG открыт и сохранён');
+  }, 'image/png');
+}
+
+// === ИНИЦИАЛИЗАЦИЯ С ЗАГРУЗКОЙ АВТОСОХРАНЕНИЯ ===
+addEventListener('resize', () => { resize(); updateBubbleBar(); });
+
+const loaded = loadState();
+resize();
+updateHistory();
+syncUI();
+
+if (loaded && state.shapes.length > 0) {
+  showToast('Прогресс восстановлен ✓');
+}
+
+// Сохраняем при закрытии/переходе
+window.addEventListener('beforeunload', saveState);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveState();
+});
+</script>
+</body>
+</html>

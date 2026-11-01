@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>HTML Editor — Справка</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --bubble: rgba(30, 34, 42, 0.95);
+    --bubble-border: rgba(255,255,255,0.12);
+    --surface-2: #1e2229;
+    --surface-3: #2a2f38;
+    --line: rgba(255,255,255,.08);
+    --text: #f0f2f5;
+    --text-secondary: #9ca3af;
+    --muted: #6b7280;
+    --accent: #6366f1;
+    --accent-soft: rgba(99,102,241,.15);
+    --danger: #ef4444;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+  html, body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    min-height: 100dvh;
+  }
+
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: calc(24px + var(--safe-top)) 20px calc(40px + var(--safe-bottom));
+  }
+
+  /* === ШАПКА === */
+  .header {
+    text-align: center;
+    padding: 20px 0 32px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 32px;
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .logo-dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 16px rgba(99,102,241,.8);
+  }
+  .logo-text {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .author {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .author span {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: var(--accent);
+    color: white;
+    border: 0;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(99,102,241,.4);
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:active { transform: scale(0.95); }
+  .back-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* === РАЗДЕЛЫ === */
+  .section {
+    margin-bottom: 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .section.open {
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(99,102,241,.15);
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .section-header:active { background: var(--surface-3); }
+  .section-title-group { display: flex; align-items: center; gap: 12px; }
+  .section-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: var(--accent-soft);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .section-icon svg { width: 18px; height: 18px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .section-title { font-weight: 700; font-size: 16px; }
+  .section-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .section-arrow {
+    width: 24px; height: 24px;
+    transition: transform 0.3s;
+    color: var(--muted);
+  }
+  .section.open .section-arrow { transform: rotate(180deg); color: var(--accent); }
+  .section-arrow svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .section-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(.4,0,.2,1);
+  }
+  .section.open .section-body { max-height: 2000px; }
+  .section-content {
+    padding: 0 20px 20px;
+  }
+  .section-desc {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* === КНОПКИ В СПРАВКЕ === */
+  .btn-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    background: var(--surface-3);
+    border-radius: 12px;
+    margin-bottom: 10px;
+  }
+  .btn-item:last-child { margin-bottom: 0; }
+  .btn-visual {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    align-items: center;
+  }
+  .btn-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    display: grid; place-items: center;
+    border: 1px solid var(--line);
+  }
+  .btn-icon svg { width: 18px; height: 18px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .btn-icon.primary { background: var(--accent); border-color: var(--accent); }
+  .btn-icon.primary svg { stroke: white; }
+  .btn-icon.danger svg { stroke: var(--danger); }
+  .btn-info { flex: 1; min-width: 0; }
+  .btn-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .btn-desc { color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+  .btn-desc ul { margin: 6px 0 0; padding-left: 18px; }
+  .btn-desc li { margin-bottom: 3px; }
+
+  /* === ВИЗУАЛИЗАЦИЯ ОСТРОВОВ === */
+  .island-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: 999px;
+    margin-bottom: 16px;
+    border: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .island-preview .btn-icon { width: 32px; height: 32px; }
+  .island-preview .btn-icon svg { width: 16px; height: 16px; }
+  .island-preview .btn-icon.big {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .island-preview .btn-icon.big svg { stroke: white; width: 22px; height: 22px; stroke-width: 2.5; }
+
+  .bubble-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    background: var(--bubble);
+    border: 1px solid var(--bubble-border);
+    border-radius: 14px;
+    margin-bottom: 16px;
+    backdrop-filter: blur(16px);
+  }
+  .bubble-preview .btn-icon {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+  }
+
+  /* === СЕТКА ЦВЕТОВ === */
+  .color-grid-preview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .color-swatch-preview {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .color-swatch-preview.rainbow {
+    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+    border: none;
+  }
+
+  /* === ПОДСКАЗКИ === */
+  .tip {
+    padding: 12px 14px;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    margin-top: 12px;
+  }
+  .tip strong { color: var(--accent); }
+
+  /* === ФУТЕР === */
+  .footer {
+    text-align: center;
+    padding: 32px 20px 20px;
+    color: var(--muted);
+    font-size: 12px;
+    border-top: 1px solid var(--line);
+    margin-top: 32px;
+  }
+  .footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ШАПКА -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <div class="logo-text">HTML Editor</div>
+    </div>
+    <div class="author">Разработчик: <span>artiomyo</span></div>
+    <a href="htmleditor.htm" class="back-btn">
+      <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+      Вернуться в редактор
+    </a>
+  </header>
+
+  <!-- ВВЕДЕНИЕ -->
+  <div class="section open">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-title-group">
+        <div class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></div>
+        <div>
+          <div class="section-title">О программе</div>
+          <div class="section-sub">Краткое описание</div>
+        </div>
+      </div>
+      <div class="section-arrow"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+    <div class="section-body">
+      <div class="section-content">
+        <div class="section-desc">
+          <strong>HTML Editor</strong> — это мобильный векторный редактор для создания простых графических композиций прямо на телефоне. 
+          Программа позволяет рисовать фигуры, редактировать их форму, настраивать цвета и экспортировать результат в HTML или PNG.
+        </div>
+        <div class="tip">
+          <strong>💡 Совет:</strong> Нажмите на любой раздел ниже, чтобы раскрыть подробное описание его функций.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВЕРХНИЙ ОСТРОВ -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-title-group">
+        <div class="section-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg></div>
+        <div>
+          <div class="section-title">Верхний остров</div>
+          <div class="section-sub">Основные инструменты</div>
+        </div>
+      </div>
+      <div class="section-arrow"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+    <div class="section-body">
+      <div class="section-content">
+        <div class="section-desc">
+          Верхняя панель содержит основные инструменты управления холстом. Расположена вверху экрана и всегда доступна.
+        </div>
+
+        <!-- Визуализация -->
+        <div class="island-preview">
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none"/><path d="M3 9h18M9 3v18"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></div>
+          <div class="btn-icon big"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 14 9 5 9-5"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none"/><path d="M3 9h18M9 3v18"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Фон холста</div>
+            <div class="btn-desc">
+              Открывает меню выбора цвета фона. Доступные варианты:
+              <ul>
+                <li><strong>Прозрачный</strong> — фон без цвета (по умолчанию)</li>
+                <li><strong>Белый</strong> — чистый белый фон</li>
+                <li><strong>Тёмно-серый</strong> — приглушённый тёмный</li>
+                <li><strong>Чёрный</strong> — полностью чёрный</li>
+                <li><strong>Свой цвет</strong> — открывает полный колорпикер для выбора любого оттенка</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Сетка и привязка</div>
+            <div class="btn-desc">
+              Включает/выключает сетку на холсте. Когда сетка активна, все фигуры и точки автоматически привязываются к её узлам — это помогает создавать ровные композиции. При активации иконка становится белой.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon primary"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Экспорт</div>
+            <div class="btn-desc">
+              Открывает панель экспорта с двумя форматами:
+              <ul>
+                <li><strong>HTML код</strong> — генерирует адаптивный HTML-файл с SVG-графикой. Фигуры автоматически масштабируются под экран устройства без обрезки краёв. Доступны кнопки: Копировать, Предпросмотр, Скачать.</li>
+                <li><strong>PNG изображение</strong> — сохраняет текущий вид холста как растровое изображение. Файл автоматически открывается и скачивается.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 14 9 5 9-5"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Слои</div>
+            <div class="btn-desc">
+              Открывает панель слоёв, где отображаются все объекты на холсте. Здесь можно:
+              <ul>
+                <li>Выделять объекты галочками (несколько галочек = группировка)</li>
+                <li>Менять порядок слоёв (поднять/опустить)</li>
+                <li>Переименовывать объекты</li>
+                <li>Управлять видимостью (👁) и блокировкой (🔒)</li>
+              </ul>
+              <strong>Группировка:</strong> Отметьте галочками несколько объектов — они будут двигаться вместе как единое целое.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Справка</div>
+            <div class="btn-desc">
+              Открывает этот файл справки (faq.html) с подробным описанием всех функций программы.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- НИЖНИЙ ОСТРОВ -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-title-group">
+        <div class="section-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></div>
+        <div>
+          <div class="section-title">Нижний остров</div>
+          <div class="section-sub">Добавление фигур и история</div>
+        </div>
+      </div>
+      <div class="section-arrow"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+    <div class="section-body">
+      <div class="section-content">
+        <div class="section-desc">
+          Нижняя панель содержит кнопку добавления новых объектов и кнопки отмены/повтора действий.
+        </div>
+
+        <div class="island-preview">
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></div>
+          <div class="btn-icon big"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Отменить (Undo)</div>
+            <div class="btn-desc">
+              Возвращает на один шаг назад. Отменяет последнее действие (добавление, перемещение, изменение цвета и т.д.). Также работает сочетание клавиш <strong>Ctrl+Z</strong>.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Добавить объект (+)</div>
+            <div class="btn-desc">
+              Открывает меню выбора типа фигуры. Доступные варианты:
+            </div>
+          </div>
+        </div>
+
+        <!-- Подменю фигур -->
+        <div style="margin-left: 50px; margin-top: 8px;">
+          <div class="btn-item" style="background: var(--surface-2);">
+            <div class="btn-visual">
+              <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></div>
+            </div>
+            <div class="btn-info">
+              <div class="btn-name">Произвольная фигура</div>
+              <div class="btn-desc">
+                Создаёт фигуру в режиме редактирования точек. Изначально — только контур (без заливки). 
+                <ul>
+                  <li><strong>Перетаскивайте точки</strong> — меняйте форму</li>
+                  <li><strong>Двойной клик по точке</strong> — удалить точку (минимум 3)</li>
+                  <li><strong>Клик по грани</strong> — добавить новую точку</li>
+                </ul>
+                После создания формы можно добавить заливку через кнопку цвета.
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-item" style="background: var(--surface-2);">
+            <div class="btn-visual">
+              <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></div>
+            </div>
+            <div class="btn-info">
+              <div class="btn-name">Прямоугольник</div>
+              <div class="btn-desc">
+                Создаёт прямоугольник с заливкой. Можно скруглить углы через меню свойств, а также перевести в режим редактирования точек (превратить в полигон).
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-item" style="background: var(--surface-2);">
+            <div class="btn-visual">
+              <div class="btn-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6.5"/></svg></div>
+            </div>
+            <div class="btn-info">
+              <div class="btn-name">Эллипс</div>
+              <div class="btn-desc">
+                Создаёт эллипс (круг или овал). Масштабируется за угловые точки, вращается за ручку сверху.
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-item" style="background: var(--surface-2);">
+            <div class="btn-visual">
+              <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M5 19 19 5"/></svg></div>
+            </div>
+            <div class="btn-info">
+              <div class="btn-name">Линия</div>
+              <div class="btn-desc">
+                Создаёт линию. Настраивается толщина и скругление концов. Перемещается за конечные точки.
+              </div>
+            </div>
+          </div>
+
+          <div class="btn-item" style="background: var(--surface-2);">
+            <div class="btn-visual">
+              <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M5 6h14M12 6v13"/></svg></div>
+            </div>
+            <div class="btn-info">
+              <div class="btn-name">Текст</div>
+              <div class="btn-desc">
+                Создаёт текстовый объект. Двойной тап по тексту открывает окно редактирования. Настраивается размер шрифта.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Повторить (Redo)</div>
+            <div class="btn-desc">
+              Возвращает отменённое действие. Работает только если было выполнено "Отменить". Сочетание клавиш: <strong>Ctrl+Y</strong>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ПАНЕЛЬ КНОПОК -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-title-group">
+        <div class="section-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div>
+          <div class="section-title">Панель кнопок</div>
+          <div class="section-sub">Инструменты редактирования</div>
+        </div>
+      </div>
+      <div class="section-arrow"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+    <div class="section-body">
+      <div class="section-content">
+        <div class="section-desc">
+          Панель кнопок появляется над выделенной фигурой. Содержит инструменты для редактирования выбранного объекта. Автоматически позиционируется так, чтобы не перекрывать фигуру.
+        </div>
+
+        <div class="bubble-preview">
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.3"/><circle cx="12" cy="12" r="9" fill="none"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke-width="2.5"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M16 4l4 4-10 10-4-4z"/><path d="M10 14l-6 6"/></svg></div>
+          <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none"/></svg></div>
+          <div class="btn-icon danger"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" fill="none"/></svg></div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.3"/><circle cx="12" cy="12" r="9" fill="none"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Цвет заливки</div>
+            <div class="btn-desc">
+              Открывает меню выбора цвета заливки фигуры.
+              <ul>
+                <li>8 предустановленных цветов</li>
+                <li>Разделитель и блок "Свой цвет" с колорпикером</li>
+                <li>До 3 последних использованных цветов</li>
+                <li>Ползунок прозрачности (0-100%)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Превью цветов -->
+        <div style="margin-left: 50px; margin-bottom: 16px;">
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Пример палитры:</div>
+          <div class="color-grid-preview">
+            <div class="color-swatch-preview" style="background:#6366f1"></div>
+            <div class="color-swatch-preview" style="background:#22c55e"></div>
+            <div class="color-swatch-preview" style="background:#f59e0b"></div>
+            <div class="color-swatch-preview" style="background:#ef4444"></div>
+            <div class="color-swatch-preview" style="background:#e879f9"></div>
+            <div class="color-swatch-preview" style="background:#f8fafc"></div>
+            <div class="color-swatch-preview" style="background:#1a1a1a"></div>
+            <div class="color-swatch-preview" style="background:#000000"></div>
+          </div>
+          <div style="font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;">Свой цвет и недавние:</div>
+          <div class="color-grid-preview">
+            <div class="color-swatch-preview rainbow"></div>
+            <div class="color-swatch-preview" style="background:#6366f1"></div>
+            <div class="color-swatch-preview" style="background:#ef4444"></div>
+            <div class="color-swatch-preview" style="background:#22c55e"></div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke-width="2.5"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Контур и толщина</div>
+            <div class="btn-desc">
+              Открывает меню настройки контура фигуры.
+              <ul>
+                <li>Выбор цвета контура (белый, чёрный, фиолетовый, свой)</li>
+                <li>Ползунок толщины (0-24 px)</li>
+                <li>История последних цветов</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Свойства (Перо)</div>
+            <div class="btn-desc">
+              Открывает меню дополнительных свойств фигуры. Содержимое зависит от типа:
+              <ul>
+                <li><strong>Прямоугольник/Фигура:</strong> режим редактирования точек (полигон), скругление углов</li>
+                <li><strong>Текст:</strong> размер шрифта</li>
+              </ul>
+              <strong>Режим полигона:</strong> кнопка "Режим редактирования активен" — нажмите чтобы выйти из режима и сохранить форму.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><path d="M16 4l4 4-10 10-4-4z"/><path d="M10 14l-6 6"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Пипетка</div>
+            <div class="btn-desc">
+              Инструмент выбора цвета с холста. После нажатия курсор превращается в прицел — нажмите на любой пиксель холста, чтобы скопировать его цвет в заливку выбранной фигуры.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Дублировать</div>
+            <div class="btn-desc">
+              Создаёт копию выбранного объекта (или группы объектов). Копия появляется со смещением +20px по X и Y. Если объекты были сгруппированы — копия создаётся без группы.
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-visual">
+            <div class="btn-icon danger"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" fill="none"/></svg></div>
+          </div>
+          <div class="btn-info">
+            <div class="btn-name">Удалить</div>
+            <div class="btn-desc">
+              Удаляет выбранный объект (или группу). Также работает клавиша <strong>Delete</strong> или <strong>Backspace</strong>. Заблокированные объекты удалить нельзя.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- УПРАВЛЕНИЕ -->
+  <div class="section">
+    <div class="section-header" onclick="toggleSection(this)">
+      <div class="section-title-group">
+        <div class="section-icon"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
+        <div>
+          <div class="section-title">Управление</div>
+          <div class="section-sub">Жесты и горячие клавиши</div>
+        </div>
+      </div>
+      <div class="section-arrow"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+    </div>
+    <div class="section-body">
+      <div class="section-content">
+        <div class="section-desc">
+          Основные способы взаимодействия с программой.
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">👆 Выделение фигуры</div>
+            <div class="btn-desc">Тапните по фигуре на холсте — она выделится, появится панель кнопок и рамка с точками изменения размера.</div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">✋ Перемещение</div>
+            <div class="btn-desc">Зажмите выделенную фигуру и тяните. Если фигура в группе — двигаются все объекты группы. Пустое место на холсте — панорамирование (перемещение вида).</div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">🔄 Масштабирование</div>
+            <div class="btn-desc">Тяните за угловые точки рамки (белые квадраты). Для текста — меняется размер шрифта пропорционально.</div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">🔃 Вращение</div>
+            <div class="btn-desc">Тяните за круглую ручку сверху от фигуры. При включённой сетке — поворот с шагом 5°.</div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">🤏 Зум двумя пальцами</div>
+            <div class="btn-desc">Разведите или сведите два пальца на холсте для масштабирования вида. Работает как pinch-to-zoom.</div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">✏️ Редактирование текста</div>
+            <div class="btn-desc">Двойной тап по текстовому объекту открывает окно ввода нового текста.</div>
+          </div>
+        </div>
+
+        <div class="btn-item">
+          <div class="btn-info">
+            <div class="btn-name">⌨️ Горячие клавиши</div>
+            <div class="btn-desc">
+              <ul>
+                <li><strong>Ctrl+Z</strong> — отменить действие</li>
+                <li><strong>Ctrl+Y</strong> — повторить действие</li>
+                <li><strong>Delete / Backspace</strong> — удалить выделенный объект</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="tip">
+          <strong>💡 Перетаскивание меню:</strong> Любое всплывающее меню можно временно отодвинуть — просто потяните за его область. При следующем движении фигуры меню вернётся к автоматическому позиционированию.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ФУТЕР -->
+  <footer class="footer">
+    <div style="margin-bottom: 8px;">
+      <strong style="color: var(--accent);">HTML Editor</strong> by <strong>artiomyo</strong>
+    </div>
+    <div>Версия 1.0 • 2026</div>
+    <div style="margin-top: 16px;">
+      <a href="htmleditor.htm" class="back-btn" style="padding: 10px 24px; font-size: 13px;">
+        <svg viewBox="0 0 24 24" style="width: 16px; height: 16px;"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        Вернуться в редактор
+      </a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+function toggleSection(header) {
+  const section = header.parentElement;
+  const wasOpen = section.classList.contains('open');
+  
+  // Закрыть все секции
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('open'));
+  
+  // Открыть текущую если она была закрыта
+  if (!wasOpen) {
+    section.classList.add('open');
+  }
+}
+</script>
+
+</body>
+</html>
